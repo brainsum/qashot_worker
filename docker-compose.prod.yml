@@ -1,0 +1,5 @@
+version: "3"
+services:
+  frontend:
+    environment:
+      - NODE_ENV=production

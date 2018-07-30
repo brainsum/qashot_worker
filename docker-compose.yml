@@ -1,0 +1,29 @@
+version: "3"
+services:
+  frontend:
+    build:
+      context: ./frontend
+    image: brainsum/qashot_worker_frontend:0.1.0
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./frontend:/home/node/app
+    ports:
+      # HOST:CONTAINER
+      - "8080:8080"
+    restart: on-failure
+
+  backstopjs_worker:
+    build:
+      context: ./backstopjs_worker
+    image: brainsum/qashot_worker_backstopjs:0.1.0
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./backstopjs_worker:/home/node/app
+    depends_on:
+      - frontend
+    ports:
+      # HOST:CONTAINER
+      - "8081:8080"
+    restart: on-failure
