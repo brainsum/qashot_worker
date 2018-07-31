@@ -18,10 +18,11 @@ app.get('/', (req, res) => {
     });
 
     response.on('end', () => {
-      res.send("Response data: " + data);
+      res.send("Hello there! " + data);
     });
   });
 });
 
-app.listen(PORT, HOST);
-console.log(`Running on http://${HOST}:${PORT}`);
+app.listen(PORT, HOST, function () {
+    console.log(`Running on http://${HOST}:${PORT}`);
+});
