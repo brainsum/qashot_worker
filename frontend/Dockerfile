@@ -1,4 +1,10 @@
-FROM node:10.7.0
+FROM node:10.7.0-alpine
+
+ENV PATH="/home/node/app/node_modules/.bin:$PATH"
+
+RUN apk add --no-cache tini
+# Tini is now available at /sbin/tini
+ENTRYPOINT ["/sbin/tini", "--"]
 
 WORKDIR /home/node/app
 
