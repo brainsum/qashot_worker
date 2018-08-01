@@ -1,0 +1,4 @@
+{
+  "browser": "chrome",
+  "engine": "puppeteer"
+}

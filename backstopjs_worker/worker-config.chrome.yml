@@ -1,0 +1,3 @@
+worker_config:
+  browser: chrome
+  engine: puppeteer
