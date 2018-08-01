@@ -17,6 +17,7 @@ app.get('/', function (req, res) {
 app.post('/api/v1/test/start', function (req, res) {
     const testId = Math.floor(Math.random() * 7) + 1;
     const backstopConfig = JSON.parse(fs.readFileSync(path.join(__dirname, 'tmp', 'backstop.' + testId + '.json'), 'utf8'));
+    console.log('Test start request, test ID: ' + testId);
     return res.json(backstopConfig);
 
     /*

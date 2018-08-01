@@ -29,5 +29,9 @@
     "eslint": "^5.2.0",
     "eslint-plugin-node": "^7.0.1",
     "nodemon": "^1.18.3"
+  },
+  "nodemonConfig": {
+    "ignore": ["node_modules", "tmp"],
+    "delay": "2500"
   }
 }
