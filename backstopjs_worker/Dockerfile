@@ -1,16 +1,55 @@
-FROM node:10.7.0-alpine
+FROM node:10.7.0
 
-ENV PATH="/home/node/app/node_modules/.bin:$PATH"
+LABEL maintainer="mhavelant"
 
-RUN apk add --no-cache tini
-# Tini is now available at /sbin/tini
+# @see: https://github.com/docksal/backstopjs/blob/master/Dockerfile
+ENV PATH="/home/node/app/node_modules/.bin:${PATH}" \
+	# Workaround to fix phantomjs-prebuilt installation errors
+	# See https://github.com/Medium/phantomjs/issues/707
+	NPM_CONFIG_UNSAFE_PERM=true \
+	TINI_VERSION=v0.18.0
+
+# Base packages
+RUN wget https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini -O /sbin/tini && \
+    chmod +x /sbin/tini && \
+    apt-get update && \
+    wget https://dl-ssl.google.com/linux/linux_signing_key.pub && \
+    apt-key add linux_signing_key.pub && \
+    apt-get install -y --no-install-recommends \
+        python-software-properties \
+        software-properties-common && \
+    add-apt-repository "deb http://dl.google.com/linux/chrome/deb/ stable main" && \
+    apt-get update && \
+	apt-get install -y --no-install-recommends \
+	    google-chrome-stable \
+	    fonts-ipafont-gothic \
+	    fonts-wqy-zenhei \
+	    fonts-thai-tlwg \
+	    fonts-kacst \
+	    ttf-freefont && \
+    # Cleanupetc
+    apt-get -y clean && \
+    apt-get -y autoclean && \
+    apt-get -y autoremove && \
+    rm -rf \
+        /var/lib/apt/lists/* \
+        /var/cache/apt/* \
+        /tmp/* \
+        /var/tmp/*
+
 ENTRYPOINT ["/sbin/tini", "--"]
 
 WORKDIR /home/node/app
 
 COPY package*.json ./
 
-RUN npm install
+RUN npm install && \
+    npm cache -g clean --force && \
+    # Add these, so --no-sandbox is not needed for chrome.
+    usermod -a -G audio,video node && \
+    mkdir -p /home/node/Downloads && \
+    chown -R node:node /home/node
+
 #RUN npm install --only=production
 
 COPY . .
