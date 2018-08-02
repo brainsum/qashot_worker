@@ -6,4 +6,6 @@ if [ ! -f ./vendor/hadolint ]; then
 fi
 
 ./vendor/hadolint ./frontend/Dockerfile
-./vendor/hadolint ./backstopjs_worker/Dockerfile
+./vendor/hadolint ./backstopjs_worker/Dockerfile-chrome
+#./vendor/hadolint ./backstopjs_worker/Dockerfile-firefox
+#./vendor/hadolint ./backstopjs_worker/Dockerfile-webkit
