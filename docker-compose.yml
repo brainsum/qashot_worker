@@ -6,22 +6,26 @@ services:
     image: brainsum/qashot_worker_frontend:0.1.3
     command: ["nodemon", "index.js"]
     environment:
-      - NODE_ENV=development
+      - "NODE_ENV=development"
+      - "COMPOSE_RABBITMQ_URL=amqp://user:bitnami@rabbitmq"
     volumes:
       - ./frontend:/home/node/app
-    ports:
-      # HOST:CONTAINER
-      - "8080:8080"
+    depends_on:
+      - rabbitmq
     restart: on-failure
+    labels:
+      - "traefik.backend=frontend"
+      - "traefik.frontend.rule=Host:frontend.${PROJECT_BASE_URL}"
+      - "traefik.port=8080"
 
-  backstopjs_worker_chrome_balancer:
-    image: dockercloud/haproxy:1.6.7
-    links:
-      - backstopjs_worker_chrome
-    ports:
-      - "8100:80"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+#  backstopjs_worker_chrome_balancer:
+#    image: dockercloud/haproxy:1.6.7
+#    links:
+#      - backstopjs_worker_chrome
+#    ports:
+#      - "8100:80"
+#    volumes:
+#      - /var/run/docker.sock:/var/run/docker.sock
 
   backstopjs_worker_chrome:
     build:
@@ -30,18 +34,25 @@ services:
     image: brainsum/qashot_worker_backstopjs_chrome:0.2.9
     command: ["nodemon", "index.js"]
     environment:
-      - NODE_ENV=development
-      - WORKER_BROWSER=chrome
+      - "NODE_ENV=development"
+      - "WORKER_BROWSER=chrome"
+      - "COMPOSE_RABBITMQ_URL=amqp://user:bitnami@rabbitmq"
     volumes:
       - ./backstopjs_worker:/home/node/app
     depends_on:
       - frontend
+      - rabbitmq
 #    ports:
 #      # @todo: Do we need exposed ports?
 #      # @todo: If yes, how can we automate this? Env variables?
 #      # HOST:CONTAINER
 #      - "8100-8102:8080"
     restart: on-failure
+    labels:
+      - "traefik.backend=backstopjs_worker_chrome"
+      - "traefik.frontend.rule=Host:backstopjs-worker-chrome.${PROJECT_BASE_URL}"
+      - "traefik.port=8080"
+      - "traefik.backend.loadbalancer.method=drr"
 
 #  # @todo: Implement this.
 #  backstopjs_worker_firefox:
@@ -63,3 +74,50 @@ services:
 #    # HOST:CONTAINER
 #    - "8150-8152:8080"
 #    restart: on-failure
+
+  rabbitmq:
+    image: bitnami/rabbitmq:3.7.7
+    environment:
+      - RABBITMQ_USERNAME=user
+      - RABBITMQ_PASSWORD=bitnami
+      - RABBITMQ_VHOST=/
+#      - RABBITMQ_ERL_COOKIE:
+      - RABBITMQ_NODE_TYPE=stats
+#      - RABBITMQ_NODE_NAME: Node name and host. E.g.: node@hostname or node (localhost won't work in cluster topology). Default rabbit@localhost. If using this variable, ensure that you specify a valid host name as the container wil fail to start otherwise.
+      - RABBITMQ_NODE_PORT_NUMBER=5672
+#      - RABBITMQ_CLUSTER_NODE_NAME: Node name to cluster with. E.g.: clusternode@hostname
+#      - RABBITMQ_CLUSTER_PARTITION_HANDLING: Cluster partition recovery mechanism. Default: ignore
+      - RABBITMQ_MANAGER_PORT_NUMBER=15672
+      - RABBITMQ_DISK_FREE_LIMIT={mem_relative, 1.0}
+      - RABBITMQ_ULIMIT_NOFILES=65536
+    volumes:
+      - ./runtime/rabbitmq_data:/bitnami
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:15672"]
+      interval: 60s
+      timeout: 10s
+      retries: 5
+    labels:
+      - "traefik.port=5672"
+#      - "traefik.backend=rabbitmq"
+#      - 'traefik.frontend.rule=Host:rabbitmq.${PROJECT_BASE_URL}'
+
+  portainer:
+    image: portainer/portainer
+    command: --no-auth -H unix:///var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      - 'traefik.backend=portainer'
+      - 'traefik.port=9000'
+      - 'traefik.frontend.rule=Host:portainer.${PROJECT_BASE_URL}'
+
+  traefik:
+    image: traefik:v1.6.5-alpine # The official Traefik docker image
+    command: ["--api", "--docker"] # Enables the web UI and tells Træfik to listen to docker
+    restart: on-failure
+    ports:
+      - "80:80"     # The HTTP port
+      - "8080:8080" # The Web UI (enabled by --api)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock # So that Traefik can listen to the Docker events

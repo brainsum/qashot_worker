@@ -23,6 +23,7 @@
   },
   "homepage": "https://github.com/brainsum/qashot_worker#readme",
   "dependencies": {
+    "amqplib": "^0.5.2",
     "express": "^4.16.3"
   },
   "devDependencies": {
@@ -31,7 +32,10 @@
     "nodemon": "^1.18.3"
   },
   "nodemonConfig": {
-    "ignore": ["node_modules", "tmp"],
+    "ignore": [
+      "node_modules",
+      "tmp"
+    ],
     "delay": "2500"
   }
 }
