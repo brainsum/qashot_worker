@@ -7,6 +7,11 @@ The QAShot worker project consists from multiple microservices to ensure speed a
 @todo
 
 ## Components
+### Traefik
+We are using traefik as a loadbalancer/reverse proxy.
+
+Access here: http://qashot-worker.docker.localhost:8080/dashboard/
+
 ### Frontend
 ### BackstopJS Worker
 
