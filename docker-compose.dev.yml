@@ -6,6 +6,7 @@ services:
     command: ["nodemon", "index.js"]
     environment:
     - "NODE_ENV=development"
+    - "DEBUG='express:*'"
 #    - "COMPOSE_RABBITMQ_URL=amqp://user:bitnami@rabbitmq"
     volumes:
     - ./frontend:/home/node/app
@@ -17,6 +18,7 @@ services:
     command: ["nodemon", "index.js"]
     environment:
     - "NODE_ENV=development"
+    - "DEBUG='express:*'"
 #    - "WORKER_BROWSER=chrome"
 #    - "COMPOSE_RABBITMQ_URL=amqp://user:bitnami@rabbitmq"
     volumes:
@@ -29,8 +31,9 @@ services:
 #      dockerfile: Dockerfile-firefox
 #    command: ["nodemon", "index.js"]
 #    environment:
-#      - NODE_ENV=production
-#      - WORKER_BROWSER=firefox
+#      - "NODE_ENV=development"
+#      - "DEBUG='express:*'"
+#      - "WORKER_BROWSER=firefox"
 #      - "COMPOSE_RABBITMQ_URL=amqp://user:bitnami@rabbitmq"
 #    volumes:
 #      - ./backstopjs_worker:/home/node/app

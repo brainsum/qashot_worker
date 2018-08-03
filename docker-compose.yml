@@ -5,6 +5,8 @@ services:
     environment:
     - "NODE_ENV=production"
     - "COMPOSE_RABBITMQ_URL=amqp://user:bitnami@rabbitmq"
+    - "SUPPORTED_TESTER_ENGINES='puppeteer;slimerjs;casper'"
+    - "JWT_SECRET_KEY=${JWT_SECRET_KEY}"
     depends_on:
     - rabbitmq
     restart: on-failure
@@ -18,7 +20,9 @@ services:
     environment:
     - "NODE_ENV=production"
     - "WORKER_BROWSER=chrome"
+    - "WORKER_ENGINE=puppeteer"
     - "COMPOSE_RABBITMQ_URL=amqp://user:bitnami@rabbitmq"
+    - "JWT_SECRET_KEY=${JWT_SECRET_KEY}"
     depends_on:
     - frontend
     - rabbitmq
@@ -33,9 +37,11 @@ services:
   #  backstopjs_worker_firefox:
   #    image: brainsum/qashot_worker_backstopjs_firefox:0.2.9
   #    environment:
-  #      - NODE_ENV=production
-  #      - WORKER_BROWSER=firefox
+  #      - "NODE_ENV=production"
+  #      - "WORKER_BROWSER=firefox"
+  #      - "WORKER_ENGINE=slimerjs"
   #      - "COMPOSE_RABBITMQ_URL=amqp://user:bitnami@rabbitmq"
+  #      - "JWT_SECRET_KEY=${JWT_SECRET_KEY}"
   #    depends_on:
   #      - frontend
   #    restart: on-failure
@@ -48,18 +54,18 @@ services:
   rabbitmq:
     image: bitnami/rabbitmq:3.7.7
     environment:
-    - RABBITMQ_USERNAME=user
-    - RABBITMQ_PASSWORD=bitnami
-    - RABBITMQ_VHOST=/
+    - "RABBITMQ_USERNAME=user"
+    - "RABBITMQ_PASSWORD=bitnami"
+    - "RABBITMQ_VHOST=/"
     #      - RABBITMQ_ERL_COOKIE:
-    - RABBITMQ_NODE_TYPE=stats
+    - "RABBITMQ_NODE_TYPE=stats"
     #      - RABBITMQ_NODE_NAME: Node name and host. E.g.: node@hostname or node (localhost won't work in cluster topology). Default rabbit@localhost. If using this variable, ensure that you specify a valid host name as the container wil fail to start otherwise.
-    - RABBITMQ_NODE_PORT_NUMBER=5672
+    - "RABBITMQ_NODE_PORT_NUMBER=5672"
     #      - RABBITMQ_CLUSTER_NODE_NAME: Node name to cluster with. E.g.: clusternode@hostname
     #      - RABBITMQ_CLUSTER_PARTITION_HANDLING: Cluster partition recovery mechanism. Default: ignore
-    - RABBITMQ_MANAGER_PORT_NUMBER=15672
-    - RABBITMQ_DISK_FREE_LIMIT={mem_relative, 1.0}
-    - RABBITMQ_ULIMIT_NOFILES=65536
+    - "RABBITMQ_MANAGER_PORT_NUMBER=15672"
+    - "RABBITMQ_DISK_FREE_LIMIT={mem_relative, 1.0}"
+    - "RABBITMQ_ULIMIT_NOFILES=65536"
     volumes:
     - ./runtime/rabbitmq_data:/bitnami
     healthcheck:
