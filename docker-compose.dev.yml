@@ -1,0 +1,36 @@
+version: "3"
+services:
+  frontend:
+    build:
+      context: ./frontend
+    command: ["nodemon", "index.js"]
+    environment:
+    - "NODE_ENV=development"
+#    - "COMPOSE_RABBITMQ_URL=amqp://user:bitnami@rabbitmq"
+    volumes:
+    - ./frontend:/home/node/app
+
+  backstopjs_worker_chrome:
+    build:
+      context: ./backstopjs_worker
+      dockerfile: Dockerfile-chrome
+    command: ["nodemon", "index.js"]
+    environment:
+    - "NODE_ENV=development"
+#    - "WORKER_BROWSER=chrome"
+#    - "COMPOSE_RABBITMQ_URL=amqp://user:bitnami@rabbitmq"
+    volumes:
+    - ./backstopjs_worker:/home/node/app
+
+#  # @todo: Implement this.
+#  backstopjs_worker_firefox:
+#    build:
+#      context: ./backstopjs_worker
+#      dockerfile: Dockerfile-firefox
+#    command: ["nodemon", "index.js"]
+#    environment:
+#      - NODE_ENV=production
+#      - WORKER_BROWSER=firefox
+#      - "COMPOSE_RABBITMQ_URL=amqp://user:bitnami@rabbitmq"
+#    volumes:
+#      - ./backstopjs_worker:/home/node/app
