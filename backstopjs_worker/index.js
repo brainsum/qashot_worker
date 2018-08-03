@@ -108,8 +108,7 @@ function rabbitTestLoop() {
                 });
         })
         .catch(error => {
-            console.log('Error while reading from RabbitMQ');
-            console.log(util.inspect(error));
+            console.log(`Couldn't read from RabbitMQ: ${error}`);
             const timeout = 10000;
             return delay(timeout).then(() => {
                 rabbitTestLoop();
@@ -214,6 +213,8 @@ function rabbitRead() {
 function loadDockerId() {
     const childProcess = require('child_process');
 
+    // @todo: Or, just use the HOSTNAME env variable.
+    // @note: HOSTNAME contains a shorter version of the ID.
     try {
         return childProcess.execSync(`cat /proc/self/cgroup | grep "docker" | sed s/\\\\//\\\\n/g | tail -1`);
     }
