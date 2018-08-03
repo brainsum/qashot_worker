@@ -5,7 +5,7 @@ services:
     environment:
     - "NODE_ENV=production"
     - "COMPOSE_RABBITMQ_URL=amqp://user:bitnami@rabbitmq"
-    - "SUPPORTED_TESTER_ENGINES='puppeteer;slimerjs;casper'"
+    - "SUPPORTED_TESTER_ENGINES=puppeteer;slimerjs;casper"
     - "JWT_SECRET_KEY=${JWT_SECRET_KEY}"
     depends_on:
     - rabbitmq
