@@ -1,11 +1,32 @@
 'use strict';
 
+function preFlightCheck() {
+    const requiredEnvVars = [
+        'SUPPORTED_TESTER_ENGINES',
+        'COMPOSE_RABBITMQ_URL',
+        'JWT_SECRET_KEY'
+    ];
+
+    let success = true;
+    requiredEnvVars.forEach(function (variableName) {
+        if (!process.env.hasOwnProperty(variableName)) {
+            console.error(`The required "${variableName}" environment variable is not set.`);
+            success = false;
+        }
+    });
+
+    if (false === success) {
+        throw new Error('Pre-flight check failed.');
+    }
+}
+
+preFlightCheck();
+
 const express = require('express');
-const fs = require('fs');
-const path = require('path');
 const url = require('url');
 const amqp = require('amqplib');
-const util = require('util');
+const asyncHandlerMiddleware = require('express-async-handler');
+const jwtHandlerMiddleware = require('express-jwt');
 
 // Constants
 const PORT = 8080;
@@ -14,12 +35,19 @@ const routingKey = "tests";
 const exchangeName = "backstop-worker";
 const qName = "backstop-puppeteer";
 
+const supportedEngines = process.env.SUPPORTED_TESTER_ENGINES.split(';');
+
 function delay(t, v) {
     return new Promise(function(resolve) {
         setTimeout(resolve.bind(null, v), t)
     });
 }
 
+/**
+ *
+ * @param {Array|ArrayBuffer|SharedArrayBuffer|Buffer|string} message
+ * @return {PromiseLike<T | never>}
+ */
 function rabbitWrite(message) {
     return rabbitConnection
         .then(conn => {
@@ -35,11 +63,14 @@ function rabbitWrite(message) {
         });
 }
 
-function pushToRabbit() {
-    for (let testId = 1; testId < 7; ++testId) {
-        const backstopConfig = JSON.stringify(JSON.parse(fs.readFileSync(path.join(__dirname, 'tmp', 'backstop.' + testId + '.json'), 'utf8')));
-        rabbitWrite(backstopConfig);
-    }
+/**
+ *
+ * @param {Object} test
+ * @return {PromiseLike<T | never>}
+ */
+function rabbitWriteTest(test) {
+    const message = JSON.stringify(test);
+    return rabbitWrite(message);
 }
 
 function rabbitSetup() {
@@ -77,7 +108,6 @@ function connect() {
         console.log('Connection to RabbitMQ has been established.');
         rabbitConnection = connection;
         rabbitSetup();
-        pushToRabbit();
         return null;
     })
         .catch((error) => {
@@ -95,24 +125,111 @@ connect();
 
 // App
 const app = express();
+
+app.use(express.json({
+    strict: true
+}));
+
+/*
+// Header:: "Authorization: Bearer <token>"
+// @see: https://github.com/auth0/node-jsonwebtoken#jwtverifytoken-secretorpublickey-options-callback
+app.use(jwtHandlerMiddleware({
+    secret: Buffer.from(process.env.JWT_SECRET_KEY),
+    requestProperty: 'auth',
+    audience: '',
+    issuer: '',
+    algorithms: ['HS256']
+}));
+
+// https://github.com/jfromaniello/express-unless
+// jwt().unless({path: [/cica]})
+*/
+// @todo: Implement JWT auth.
+app.use(function (req, res, next) {
+    console.log(`Incoming request at ${Date.now()}`);
+    next();
+});
+
 app.get('/', function (req, res) {
-  res.json({ message: 'General Kenobi.'});
+  return res.json({ message: 'General Kenobi.'});
 });
 
-app.post('/api/v1/test/start', function (req, res) {
-    const testId = Math.floor(Math.random() * 7) + 1;
-    const backstopConfig = JSON.parse(fs.readFileSync(path.join(__dirname, 'tmp', 'backstop.' + testId + '.json'), 'utf8'));
-    console.log('Test start request, test ID: ' + testId);
-    return res.json(backstopConfig);
+function rabbitWriteMultiple(messages) {
+    // @todo: Implement.
+    Array.prototype.forEach(function (message) {
+        rabbitWriteTest(message)
+            .then(function (resolve) {
+                return resolve(`Message ${message} added to the queue.`);
+            })
+            .catch(function (reject) {
+                return reject(`Couldn't add ${message} to the queue.`);
+            });
+    });
+}
 
-    /*
-        Query an idle test.
-        Set it to "in progress".
-        Return the test data.
+/**
+ * Check a test config for issues.
+ *
+ * @param config
+ * @return {Array} The errors during validation. If it's an empty array, the config is valid.
+ */
+function verifyTestConfig(config) {
+    let errors = [];
 
-        @todo: What if there are no tests?
-     */
-});
+    if (!config.hasOwnProperty('id')) {
+        errors.push('The required id field is missing from the test.');
+    }
+
+    if (!config.hasOwnProperty('engine') || !supportedEngines.includes(config['engine'])) {
+        errors.push('The required "engine" field is invalid or missing from the test.');
+    }
+
+    if (!config.hasOwnProperty('viewports') || !Array.isArray(config['viewports']) || config['viewports'].length === 0) {
+        errors.push('The required "viewports" field is invalid or missing from the test.');
+    }
+    if (!config.hasOwnProperty('scenarios') || !Array.isArray(config['scenarios']) || config['scenarios'].length === 0) {
+        errors.push('The required "scenarios" field is invalid or missing from the test.');
+    }
+
+    return errors;
+}
+
+// @todo: Implement bulk-add?
+
+app.post('/api/v1/test/add', asyncHandlerMiddleware(async function (req, res) {
+    if (undefined === req.body) { // || req.body.length === 0
+        res.statusCode = 400;
+        return res.json({message: 'Empty request.'});
+    }
+
+    let testConfig = req.body;
+
+    const configErrors = verifyTestConfig(testConfig);
+    if (configErrors.length !== 0) {
+        res.statusCode = 400;
+        return res.json({
+            message: 'The config is not a valid test config.',
+            errors: configErrors
+        });
+    }
+
+    try {
+        await rabbitWriteTest(testConfig);
+        return res.json({
+            message: 'The test has been added to the queue.',
+            test: testConfig
+        });
+    }
+    catch (error) {
+        console.log(error);
+        res.statusCode = 400;
+        return res.json({
+            message: 'Could not add test to the queue.',
+            test: testConfig,
+            error: error
+        });
+    }
+}));
 
 const server = app.listen(PORT, HOST, function () {
     console.log(`Running on http://${HOST}:${PORT}`);
