@@ -22,7 +22,7 @@ Docker and Docker-compose with docker-compose.yml v3 support.
 - Use ```docker.startup.dev.sh``` or ```docker.startup.prod.sh```
     - *Note*: Dev will build the docker images if not already present on the machine. This might take several minutes and use lots of resources.
 
-## Components (Custom)
+## Components (custom)
 ### Frontend
 @todo
 ### BackstopJS Worker
