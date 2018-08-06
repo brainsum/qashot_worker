@@ -16,7 +16,7 @@ services:
     - "traefik.port=8080"
 
   backstopjs_worker_chrome:
-    image: brainsum/qashot_worker_backstopjs_chrome:0.2.9
+    image: brainsum/qashot_worker_backstopjs_chrome:0.2.10
     environment:
     - "NODE_ENV=production"
     - "WORKER_BROWSER=chrome"
