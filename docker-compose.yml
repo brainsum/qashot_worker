@@ -12,7 +12,7 @@ services:
     restart: on-failure
     labels:
     - "traefik.backend=frontend"
-    - "traefik.frontend.rule=Host:frontend.${PROJECT_BASE_URL}"
+    - "traefik.frontend.rule=Host:${PROJECT_BASE_URL}"
     - "traefik.port=8080"
 
   backstopjs_worker_chrome:
