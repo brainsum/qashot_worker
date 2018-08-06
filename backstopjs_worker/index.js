@@ -102,12 +102,13 @@ function rabbitTestLoop() {
 
             startTest(backstopConfig)
                 .finally(function () {
-                    console.timeEnd('testLoop');
+                    console.timeEnd('rabbitTestLoop');
                     console.log(`Test ${backstopConfig['id']} ended.`);
                     rabbitTestLoop();
                 });
         })
         .catch(error => {
+            console.timeEnd('rabbitTestLoop');
             console.log(`Couldn't read from RabbitMQ: ${error}`);
             const timeout = 10000;
             return delay(timeout).then(() => {
