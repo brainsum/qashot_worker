@@ -17,8 +17,9 @@ Docker and Docker-compose with docker-compose.yml v3 support.
 ### How to install
 - Clone the repo
 - Copy ```.env.example``` as ```.env``` and update the keys for your environment
-- Create a ```runtime``` folder
-- Create a ```rabbitmq_data``` folder with ```user:group -> 1001:1001```
+- Create a ```runtime``` folder in the project root
+- Create a ```rabbitmq_data``` folder with ```user:group -> 1001:1001``` in the project root ```runtime``` folder
+- (optional) Create a ```runtime``` folder in the ```backstopjs_worker``` folder
 - Use ```docker.startup.dev.sh``` or ```docker.startup.prod.sh```
     - *Note*: Dev will build the docker images if not already present on the machine. This might take several minutes and use lots of resources.
 
