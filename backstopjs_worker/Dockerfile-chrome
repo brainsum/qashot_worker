@@ -48,6 +48,7 @@ RUN npm install && \
     # Add these, so --no-sandbox is not needed for chrome.
     usermod -a -G audio,video node && \
     mkdir -p /home/node/Downloads && \
+    mkdir /home/node/app/runtime && \
     chown -R node:node /home/node
 
 #RUN npm install --only=production
