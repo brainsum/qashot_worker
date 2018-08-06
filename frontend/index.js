@@ -204,6 +204,12 @@ app.post('/api/v1/test/add', asyncHandlerMiddleware(async function (req, res) {
 
     let testConfig = req.body;
 
+    // @todo: testConfig should be in req.body.test
+    // Body should contain the following:
+    // Run type: A/B or before-after
+    // @todo: Maybe infer run type from tests.
+    // If both ref/test urls are added and they are not the same: A/B
+    // Otherwise, B/A.
     const configErrors = verifyTestConfig(testConfig);
     if (configErrors.length !== 0) {
         res.statusCode = 400;
