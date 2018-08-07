@@ -25,17 +25,32 @@ preFlightCheck();
 const express = require('express');
 const url = require('url');
 const amqp = require('amqplib');
+const util = require('util');
 const asyncHandlerMiddleware = require('express-async-handler');
 const jwtHandlerMiddleware = require('express-jwt');
 
 // Constants
 const PORT = 8080;
 const HOST = '0.0.0.0';
-const routingKey = "tests";
-const exchangeName = "backstop-worker";
-const qName = "backstop-puppeteer";
+
+const signals = {
+    'SIGHUP': 1,
+    'SIGINT': 2,
+    'SIGTERM': 15
+};
+
+const rabbitConfiguration = {
+    'puppeteer': {
+        'queue': 'backstop-puppeteer',
+        'exchange': 'backstop-worker',
+        'routing': 'tests'
+    }
+};
 
 const supportedEngines = process.env.SUPPORTED_TESTER_ENGINES.split(';');
+
+let rabbitConnection = undefined;
+let rabbitChannel = undefined;
 
 function delay(t, v) {
     return new Promise(function(resolve) {
@@ -44,22 +59,23 @@ function delay(t, v) {
 }
 
 /**
+ * Publish the message to rabbit.
  *
  * @param {Array|ArrayBuffer|SharedArrayBuffer|Buffer|string} message
- * @return {PromiseLike<T | never>}
+ * @return {Promise<any | never>}
  */
 function rabbitWrite(message) {
-    return rabbitConnection
-        .then(conn => {
-            return conn.createChannel();
-        })
-        .then(ch => {
-            ch.publish(exchangeName, routingKey, Buffer.from(message));
-            const msgTxt = message + " : Message sent at " + new Date();
-            console.log(" [+] %s", msgTxt);
-            return new Promise(resolve => {
-                resolve(message);
-            });
+    return new Promise(resolve => {
+        rabbitChannel.publish(rabbitConfiguration['puppeteer']['exchange'], rabbitConfiguration['puppeteer']['routing'], Buffer.from(message), {
+            contentType: 'application/json'
+        });
+        const msgTxt = message + " : Message sent at " + new Date();
+        console.log(" [+] %s", msgTxt);
+        return resolve(message);
+    })
+        .catch(err => {
+            console.error(err);
+            throw new Error(err.message);
         });
 }
 
@@ -73,27 +89,6 @@ function rabbitWriteTest(test) {
     return rabbitWrite(message);
 }
 
-function rabbitSetup() {
-    rabbitConnection.then(conn => {
-        return conn.createChannel();
-    })
-        .then(ch => {
-            return ch.
-            assertExchange(exchangeName, 'direct', { durable: true })
-                .then(() => {
-                    return ch.assertQueue(qName, { exclusive: false });
-                })
-                .then(q => {
-                    return ch.bindQueue(q.queue, exchangeName, routingKey);
-                });
-        })
-        .catch(err => {
-            console.error(err);
-            throw new Error(err.message);
-        });
-}
-
-let rabbitConnection = undefined;
 function connect() {
     const connectionString = process.env.COMPOSE_RABBITMQ_URL;
 
@@ -103,18 +98,44 @@ function connect() {
     }
 
     const parsedurl = url.parse(connectionString);
-    const connection = amqp.connect(connectionString, { servername: parsedurl.hostname });
-    connection.then(() => {
-        console.log('Connection to RabbitMQ has been established.');
-        rabbitConnection = connection;
-        rabbitSetup();
-        return null;
-    })
+    amqp.connect(connectionString, { servername: parsedurl.hostname })
+        .then((conn) => {
+            // Create a listener for each of the signals that we want to handle
+            Object.keys(signals).forEach((signal) => {
+                process.on(signal, function() { conn.close(); });
+            });
+
+            console.log('Connection to RabbitMQ has been established.');
+            rabbitConnection = conn;
+            return conn;
+        })
+        .then(conn => {
+            return conn.createChannel();
+        })
+        .then(ch => {
+            return ch.assertExchange(rabbitConfiguration['puppeteer']['exchange'], 'direct', {})
+                .then(() => {
+                    return ch.assertQueue(rabbitConfiguration['puppeteer']['queue'], {});
+                })
+                .then(() => {
+                    return ch.prefetch(1);
+                })
+                .then(q => {
+                    return ch.bindQueue(q.queue, rabbitConfiguration['puppeteer']['exchange'], rabbitConfiguration['puppeteer']['routing']);
+                })
+                .then(() => {
+                    rabbitChannel = ch;
+                    return ch;
+                })
+                .catch(err => {
+                    console.error(err);
+                    throw new Error(err.message);
+                });
+        })
         .catch((error) => {
             const timeout = 3000;
-
             console.log(`Connection to RabbitMQ failed. Retry in ${timeout / 1000} seconds ..`);
-            // console.log(util.inspect(error));
+            console.log(util.inspect(error));
             delay(timeout).then(() => {
                 connect();
             });
@@ -146,7 +167,8 @@ app.use(jwtHandlerMiddleware({
 */
 // @todo: Implement JWT auth.
 app.use(function (req, res, next) {
-    console.log(`Incoming request at ${Date.now()}`);
+    let date = new Date().toISOString();
+    console.log(`Incoming request: ${req.method} ${req.path} at ${date}`);
     next();
 });
 
@@ -154,18 +176,18 @@ app.get('/', function (req, res) {
   return res.json({ message: 'General Kenobi.'});
 });
 
-function rabbitWriteMultiple(messages) {
-    // @todo: Implement.
-    Array.prototype.forEach(function (message) {
-        rabbitWriteTest(message)
-            .then(function (resolve) {
-                return resolve(`Message ${message} added to the queue.`);
-            })
-            .catch(function (reject) {
-                return reject(`Couldn't add ${message} to the queue.`);
-            });
-    });
-}
+// function rabbitWriteMultiple(messages) {
+//     // @todo: Implement.
+//     Array.prototype.forEach(function (message) {
+//         rabbitWriteTest(message)
+//             .then(function (resolve) {
+//                 return resolve(`Message ${message} added to the queue.`);
+//             })
+//             .catch(function (reject) {
+//                 return reject(`Couldn't add ${message} to the queue.`);
+//             });
+//     });
+// }
 
 /**
  * Check a test config for issues.
@@ -243,17 +265,13 @@ const server = app.listen(PORT, HOST, function () {
 
 // The signals we want to handle
 // NOTE: although it is tempting, the SIGKILL signal (9) cannot be intercepted and handled
-const signals = {
-    'SIGHUP': 1,
-    'SIGINT': 2,
-    'SIGTERM': 15
-};
+
 // Do any necessary shutdown logic for our application here
 const shutdown = (signal, value) => {
     console.log("shutdown!");
     server.close(() => {
         console.log(`server stopped by ${signal} with value ${value}`);
-        process.exit(128 + value);
+        process.exitCode = 128 + value;
     });
 };
 // Create a listener for each of the signals that we want to handle
