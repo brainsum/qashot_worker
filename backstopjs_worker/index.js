@@ -234,10 +234,10 @@ function loadWorkerConfig() {
     const supportedBrowsers = [
         'chrome',
         'firefox',
+        'phantomjs'
     ];
 
     if (supportedBrowsers.includes(browser)) {
-        // @todo: Add YML parsing.
         const filename = `worker-config.${browser}.json`;
         return JSON.parse(fs.readFileSync(path.join(__dirname, filename)));
     }
@@ -290,7 +290,7 @@ const shutdown = (signal, value) => {
     console.log("shutdown!");
     server.close(() => {
         console.log(`server stopped by ${signal} with value ${value}`);
-        process.exit(128 + value);
+        process.exitCode = 128 + value;
     });
 };
 // Create a listener for each of the signals that we want to handle
