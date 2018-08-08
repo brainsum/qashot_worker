@@ -1,5 +1,28 @@
 'use strict';
 
+function preFlightCheck() {
+    const requiredEnvVars = [
+        'WORKER_BROWSER',
+        'WORKER_ENGINE',
+        'COMPOSE_RABBITMQ_URL',
+        'JWT_SECRET_KEY'
+    ];
+
+    let success = true;
+    requiredEnvVars.forEach(function (variableName) {
+        if (!process.env.hasOwnProperty(variableName)) {
+            console.error(`The required "${variableName}" environment variable is not set.`);
+            success = false;
+        }
+    });
+
+    if (false === success) {
+        throw new Error('Pre-flight check failed.');
+    }
+}
+
+preFlightCheck();
+
 // @todo: Check the "request" module, maybe it's more convenient.
 const client = require('http');
 const express = require('express');
@@ -10,14 +33,47 @@ const util = require('util');
 const url = require('url');
 const amqp = require('amqplib');
 
-// Constants
+function loadWorkerConfig() {
+    const supportedBrowsers = [
+        'chrome',
+        'firefox',
+        'phantomjs'
+    ];
+
+    if (supportedBrowsers.includes(process.env.WORKER_BROWSER)) {
+        const filename = `worker-config.${process.env.WORKER_BROWSER}.json`;
+        return JSON.parse(fs.readFileSync(path.join(__dirname, filename)));
+    }
+
+    throw new Error('Could not load configuration for the worker.');
+}
+
+function ensureDirectory(path) {
+    if (!fs.existsSync(path)) {
+        fs.mkdirSync(path, 0o775);
+    }
+}
+
+const signals = {
+    'SIGHUP': 1,
+    'SIGINT': 2,
+    'SIGTERM': 15
+};
+
 const PORT = 8080;
 const HOST = '0.0.0.0';
-const routingKey = "tests";
-const exchangeName = "backstop-worker";
-const qName = "backstop-puppeteer";
+const workerConfig = loadWorkerConfig();
+const rabbitConfiguration = {
+    'queue': `backstop-${workerConfig['browser']}`,
+    'exchange': 'backstop-worker',
+    'routing': 'tests'
+};
 
 let rabbitConnection = undefined;
+let rabbitChannel = undefined;
+
+ensureDirectory(path.join(__dirname, 'runtime'));
+ensureDirectory(path.join(__dirname, 'runtime', workerConfig['browser']));
 
 function executeReference(config) {
     return backstop('reference', { config: config })
@@ -39,19 +95,13 @@ function executeTest(config) {
         });
 }
 
-function startTest(config) {
+function startABTest(config) {
     console.log(util.inspect(config));
 
     return executeReference(config)
         .then(function () {
             return executeTest(config);
         });
-}
-
-function ensureDirectory(path) {
-    if (!fs.existsSync(path)) {
-        fs.mkdirSync(path, 0o775);
-    }
 }
 
 function delay(t, v) {
@@ -65,42 +115,37 @@ function rabbitTestLoop() {
 
     rabbitRead()
         .then(data => {
-            const backstopConfig = data;
+            // @todo: Maybe use this for something.
+            // const originalBackstopConfig = data;
+            let backstopConfig = data;
             console.log('Data received. Config ID is: ' + backstopConfig['id']);
 
             const templates = path.join(__dirname, 'templates');
-            const runtime = path.join(__dirname, 'runtime', backstopConfig['id']);
+            const currentRuntime = path.join(__dirname, 'runtime', workerConfig['browser'], backstopConfig['id']);
+            ensureDirectory(currentRuntime);
 
-            ensureDirectory(runtime);
-
-            // Engine options:
-            // - puppeteer, chromy
-            // - slimerjs
-            // - casper
             backstopConfig['paths'] = {
-                "engine_scripts": path.join(templates, "puppeteer_scripts"),
-                "bitmaps_reference": path.join(runtime, "reference"),
-                "bitmaps_test": path.join(runtime, "test"),
-                "html_report": path.join(runtime, "html_report"),
-                "ci_report": path.join(runtime, "ci_report")
+                "engine_scripts": path.join(templates, `${workerConfig['engine']}_scripts`),
+                "bitmaps_reference": path.join(currentRuntime, "reference"),
+                "bitmaps_test": path.join(currentRuntime, "test"),
+                "html_report": path.join(currentRuntime, "html_report"),
+                "ci_report": path.join(currentRuntime, "ci_report")
             };
-
-            backstopConfig['engineOptions'] = {
-                'ignoreHTTPSErrors': false,
-                'args': [
-                    '--no-sandbox',
-                    // '--disable-setuid-sandbox',
-                ],
-            };
-
-            // backstopConfig['debug'] = true;
-            // backstopConfig['debugWindow'] = true;
 
             Object.keys(backstopConfig['paths']).forEach(function (key) {
                 ensureDirectory(backstopConfig['paths'][key]);
             });
 
-            startTest(backstopConfig)
+            backstopConfig[workerConfig['engineOptions']['backstopKey']] = workerConfig['engineOptions']['options'];
+
+            if (process.env.DEBUG === true) {
+                backstopConfig['debug'] = true;
+            }
+            if (process.env.DEBUG_WINDOW === true) {
+                backstopConfig['debugWindow'] = true;
+            }
+
+            startABTest(backstopConfig)
                 .finally(function () {
                     console.timeEnd('rabbitTestLoop');
                     console.log(`Test ${backstopConfig['id']} ended.`);
@@ -118,137 +163,72 @@ function rabbitTestLoop() {
 
 }
 
-function rabbitSetup() {
-    rabbitConnection.then(conn => {
-        return conn.createChannel();
-    })
-        .then(ch => {
-            return ch.
-            assertExchange(exchangeName, 'direct', { durable: true })
-                .then(() => {
-                    return ch.assertQueue(qName, { exclusive: false });
-                })
-                .then(q => {
-                    return ch.bindQueue(q.queue, exchangeName, routingKey);
-                });
-        })
-        .catch(err => {
-            console.error(err);
-            throw new Error(err.message);
-        });
-}
-
 function connect() {
     const connectionString = process.env.COMPOSE_RABBITMQ_URL;
-
-    if (connectionString === undefined) {
-        console.error("Please set the COMPOSE_RABBITMQ_URL environment variable");
-        throw new Error("Please set the COMPOSE_RABBITMQ_URL environment variable");
-    }
-
     const parsedurl = url.parse(connectionString);
-    const connection = amqp.connect(connectionString, { servername: parsedurl.hostname });
-    connection.then(() => {
-        console.log('Connection to RabbitMQ has been established.');
-        rabbitConnection = connection;
-        rabbitSetup();
-        rabbitTestLoop();
-        return null;
-    })
+    return amqp.connect(connectionString, { servername: parsedurl.hostname })
+        .then((conn) => {
+            // Create a listener for each of the signals that we want to handle
+            Object.keys(signals).forEach((signal) => {
+                process.on(signal, function() { conn.close(); });
+            });
+
+            console.log('Connection to RabbitMQ has been established.');
+            rabbitConnection = conn;
+            return conn;
+        })
+        .then(conn => {
+            return conn.createChannel();
+        })
+        .then(ch => {
+            return ch.assertExchange(rabbitConfiguration['exchange'], 'direct', {})
+                .then(() => {
+                    return ch.assertQueue(rabbitConfiguration['queue'], {});
+                })
+                .then(() => {
+                    return ch.prefetch(1);
+                })
+                .then(q => {
+                    return ch.bindQueue(q.queue, rabbitConfiguration['exchange'], rabbitConfiguration['routing']);
+                })
+                .then(() => {
+                    rabbitChannel = ch;
+                    return ch;
+                })
+                .catch(err => {
+                    console.error(err);
+                    throw new Error(err.message);
+                });
+        })
         .catch((error) => {
             const timeout = 3000;
-
-            console.log(`Connection to RabbitMQ failed. Retry in ${timeout / 1000} seconds..`);
-            // console.log(util.inspect(error));
+            console.log(`Connection to RabbitMQ failed. Retry in ${timeout / 1000} seconds ..`);
+            console.log(util.inspect(error));
             delay(timeout).then(() => {
                 connect();
             });
         });
 }
 
-connect();
-
-// function rabbitWrite(message) {
-//     return rabbitConnection
-//         .then(conn => {
-//             conn.createChannel();
-//         })
-//         .then(ch => {
-//             ch.publish(exchangeName, routingKey, Buffer.from(message));
-//             const msgTxt = message + " : Message sent at " + new Date();
-//             console.log(" [+] %s", msgTxt);
-//             return new Promise(resolve => {
-//                 resolve(message);
-//             });
-//         });
-// }
+connect().then(() => {
+    rabbitTestLoop();
+});
 
 function rabbitRead() {
-    return rabbitConnection
-        .then(conn => {
-            return conn.createChannel();
-        })
-        .then(ch => {
-            return ch.get(qName, {}).then(msgOrFalse => {
-                // let result = "No messages in queue";
-                // if (msgOrFalse !== false) {
-                //     result = `${msgOrFalse.content.toString()} : Message received at ${new Date()}`;
-                //     ch.ack(msgOrFalse);
-                // }
-                // console.log("Reading from RabbitMQ:: [-] %s", result);
-
-                return new Promise((resolve, reject) => {
-                    if (msgOrFalse !== false) {
-                        console.log("Reading from RabbitMQ:: [-] %s", `${msgOrFalse.content.toString()} : Message received at ${new Date()}`);
-                        ch.ack(msgOrFalse);
-                        resolve(JSON.parse(msgOrFalse.content.toString()));
-                    }
-                    else {
-                        reject('No messages in queue.');
-                    }
-                });
-            });
+    return new Promise((resolve, reject) => {
+        return rabbitChannel.get(rabbitConfiguration['queue'], {}).then(msgOrFalse => {
+                if (msgOrFalse !== false) {
+                    console.log("Reading from RabbitMQ:: [-] %s", `${msgOrFalse.content.toString()} : Message received at ${new Date()}`);
+                    // @todo: Move this after the test has finished/failed.
+                    rabbitChannel.ack(msgOrFalse);
+                    resolve(JSON.parse(msgOrFalse.content.toString()));
+                }
+                else {
+                    reject('No messages in queue.');
+                }
         });
+    });
 }
-
-function loadDockerId() {
-    const childProcess = require('child_process');
-
-    // @todo: Or, just use the HOSTNAME env variable.
-    // @note: HOSTNAME contains a shorter version of the ID.
-    try {
-        return childProcess.execSync(`cat /proc/self/cgroup | grep "docker" | sed s/\\\\//\\\\n/g | tail -1`);
-    }
-    catch (error) {
-        console.error('There was an error while getting the docker ID.');
-    }
-
-    return undefined;
-}
-
-const dockerId = loadDockerId();
-
-function loadWorkerConfig() {
-    let browser = process.env.WORKER_BROWSER ? process.env.WORKER_BROWSER : undefined;
-
-    const supportedBrowsers = [
-        'chrome',
-        'firefox',
-        'phantomjs'
-    ];
-
-    if (supportedBrowsers.includes(browser)) {
-        const filename = `worker-config.${browser}.json`;
-        return JSON.parse(fs.readFileSync(path.join(__dirname, filename)));
-    }
-
-    throw new Error('Could not load configuration for the worker.');
-}
-
-const workerConfig = loadWorkerConfig();
-
-console.log('Worker config should be loaded. See:');
-console.log(util.inspect(workerConfig));
 
 // App
 const app = express();
@@ -265,26 +245,9 @@ app.get('/', (req, res) => {
     });
 });
 
-app.get('/hello', (req, res) => {
-    const message = req.query.message ? req.query.message : 'no msg';
 
-    const name = dockerId ? `${dockerId} worker` : 'backstop worker';
+let server = undefined;
 
-    console.log(`${name} says: Hello there! ${message}`);
-    res.send(`${name} says: Hello there! ${message}`);
-});
-
-const server = app.listen(PORT, HOST, function () {
-    console.log(`Running on http://${HOST}:${PORT}`);
-});
-
-// The signals we want to handle
-// NOTE: although it is tempting, the SIGKILL signal (9) cannot be intercepted and handled
-const signals = {
-    'SIGHUP': 1,
-    'SIGINT': 2,
-    'SIGTERM': 15
-};
 // Do any necessary shutdown logic for our application here
 const shutdown = (signal, value) => {
     console.log("shutdown!");
@@ -293,10 +256,21 @@ const shutdown = (signal, value) => {
         process.exitCode = 128 + value;
     });
 };
-// Create a listener for each of the signals that we want to handle
-Object.keys(signals).forEach((signal) => {
-    process.on(signal, () => {
-        console.log(`process received a ${signal} signal`);
-        shutdown(signal, signals[signal]);
+
+connect().then(() => {
+    server = app.listen(PORT, HOST, function () {
+        console.log(`Running on http://${HOST}:${PORT}`);
     });
-});
+
+    // Create a listener for each of the signals that we want to handle
+    Object.keys(signals).forEach((signal) => {
+        process.on(signal, () => {
+            console.log(`process received a ${signal} signal`);
+            shutdown(signal, signals[signal]);
+        });
+    });
+
+})
+    .catch(error => {
+        console.log(`Error while connecting to RabbitMQ: ${error}`);
+    });
