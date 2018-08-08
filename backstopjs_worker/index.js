@@ -136,6 +136,7 @@ function rabbitTestLoop() {
                 ensureDirectory(backstopConfig['paths'][key]);
             });
 
+            backstopConfig['engine'] = workerConfig['engine'];
             backstopConfig[workerConfig['engineOptions']['backstopKey']] = workerConfig['engineOptions']['options'];
 
             if (process.env.DEBUG === true) {
