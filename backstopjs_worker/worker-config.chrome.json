@@ -1,4 +1,13 @@
 {
   "browser": "chrome",
-  "engine": "puppeteer"
+  "engine": "puppeteer",
+  "engineOptions": {
+    "backstopKey": "engineOptions",
+    "options": {
+        "ignoreHTTPSErrors": false,
+        "args": [
+          "--no-sandbox"
+        ]
+    }
+  }
 }

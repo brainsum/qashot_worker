@@ -1,3 +1,0 @@
-worker_config:
-  browser: firefox
-  engine: slimerjs
