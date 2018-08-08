@@ -66,7 +66,7 @@ const workerConfig = loadWorkerConfig();
 const rabbitConfiguration = {
     'queue': `backstop-${workerConfig['browser']}`,
     'exchange': 'backstop-worker',
-    'routing': 'tests'
+    'routing': `${workerConfig['browser']}-tests`
 };
 
 let rabbitConnection = undefined;

@@ -54,7 +54,7 @@ function getRabbitConfig() {
         config[browser] = {
             'queue': `backstop-${browser}`,
             'exchange': 'backstop-worker',
-            'routing': 'tests'
+            'routing': `${browser}-tests`
         };
     });
 
@@ -64,7 +64,7 @@ function getRabbitConfig() {
 const rabbitConfiguration = getRabbitConfig();
 
 let rabbitConnection = undefined;
-let rabbitChannel = undefined;
+let rabbitChannels = {};
 
 function delay(t, v) {
     return new Promise(function(resolve) {
@@ -81,7 +81,8 @@ function delay(t, v) {
  */
 function rabbitWrite(browser, message) {
     return new Promise(resolve => {
-        rabbitChannel.publish(rabbitConfiguration[browser]['exchange'], rabbitConfiguration[browser]['routing'], Buffer.from(message), {
+        console.log(`Trying to publish to channel "${browser}".`);
+        rabbitChannels[browser].publish(rabbitConfiguration[browser]['exchange'], rabbitConfiguration[browser]['routing'], Buffer.from(message), {
             contentType: 'application/json'
         });
         const msgTxt = message + " : Message sent at " + new Date();
@@ -105,6 +106,47 @@ function rabbitWriteTest(browser, test) {
     return rabbitWrite(browser, message);
 }
 
+/**
+ * Create a single channel according to the config.
+ *
+ * @param {string} browser
+ * @param {Object} config
+ * @return {PromiseLike<T | never>}
+ */
+function createChannel(browser, config) {
+    return rabbitConnection.createChannel().then(ch => {
+        // @todo: Add multiple channels, one for each browser.
+        return ch.assertExchange(config['exchange'], 'direct', {})
+            .then(() => {
+                return ch.assertQueue(config['queue'], {});
+            })
+            .then(() => {
+                return ch.prefetch(1);
+            })
+            .then(q => {
+                return ch.bindQueue(q.queue, config['exchange'], config['routing']);
+            })
+            .then(() => {
+                rabbitChannels[browser] = ch;
+                return ch;
+            })
+            .catch(err => {
+                console.error(err);
+                throw new Error(err.message);
+            });
+    })
+}
+
+function createChannels() {
+    let promises = [];
+
+    Object.keys(rabbitConfiguration).forEach(browser => {
+        promises.push(createChannel(browser, rabbitConfiguration[browser]));
+    });
+
+    return Promise.all(promises);
+}
+
 function connect() {
     const connectionString = process.env.COMPOSE_RABBITMQ_URL;
     const parsedurl = url.parse(connectionString);
@@ -119,29 +161,8 @@ function connect() {
             rabbitConnection = conn;
             return conn;
         })
-        .then(conn => {
-            return conn.createChannel();
-        })
-        .then(ch => {
-            // @todo: Add multiple channels, one for each browser.
-            return ch.assertExchange(rabbitConfiguration['chrome']['exchange'], 'direct', {})
-                .then(() => {
-                    return ch.assertQueue(rabbitConfiguration['chrome']['queue'], {});
-                })
-                .then(() => {
-                    return ch.prefetch(1);
-                })
-                .then(q => {
-                    return ch.bindQueue(q.queue, rabbitConfiguration['chrome']['exchange'], rabbitConfiguration['chrome']['routing']);
-                })
-                .then(() => {
-                    rabbitChannel = ch;
-                    return ch;
-                })
-                .catch(err => {
-                    console.error(err);
-                    throw new Error(err.message);
-                });
+        .then(() => {
+            return createChannels();
         })
         .catch((error) => {
             const timeout = 3000;
