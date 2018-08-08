@@ -1,6 +1,7 @@
 {
   "browser": "phantomjs",
   "engine": "casper",
+  "scriptsFolder": "casper_scripts",
   "engineOptions": {
     "backstopKey": "casperFlags",
     "options": {}

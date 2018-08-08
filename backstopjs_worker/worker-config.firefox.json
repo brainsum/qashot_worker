@@ -1,6 +1,7 @@
 {
   "browser": "firefox",
   "engine": "slimerjs",
+  "scriptsFolder": "casper_scripts",
   "engineOptions": {
     "backstopKey": "engineOptions",
     "options": {}

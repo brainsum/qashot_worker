@@ -125,7 +125,7 @@ function rabbitTestLoop() {
             ensureDirectory(currentRuntime);
 
             backstopConfig['paths'] = {
-                "engine_scripts": path.join(templates, `${workerConfig['engine']}_scripts`),
+                "engine_scripts": path.join(templates, workerConfig['scriptsFolder']),
                 "bitmaps_reference": path.join(currentRuntime, "reference"),
                 "bitmaps_test": path.join(currentRuntime, "test"),
                 "html_report": path.join(currentRuntime, "html_report"),
