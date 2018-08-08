@@ -2,7 +2,7 @@
 
 function preFlightCheck() {
     const requiredEnvVars = [
-        'SUPPORTED_TESTER_ENGINES',
+        'SUPPORTED_BROWSERS',
         'COMPOSE_RABBITMQ_URL',
         'JWT_SECRET_KEY'
     ];
@@ -39,15 +39,29 @@ const signals = {
     'SIGTERM': 15
 };
 
-const rabbitConfiguration = {
-    'puppeteer': {
-        'queue': 'backstop-puppeteer',
-        'exchange': 'backstop-worker',
-        'routing': 'tests'
-    }
+const supportedBrowsers = process.env.SUPPORTED_BROWSERS.split(';');
+const supportedModes = {
+    'a_b': [],
+    'before_after': [
+        'before',
+        'after'
+    ]
 };
 
-const supportedEngines = process.env.SUPPORTED_TESTER_ENGINES.split(';');
+function getRabbitConfig() {
+    let config = {};
+    supportedBrowsers.forEach((browser) => {
+        config[browser] = {
+            'queue': `backstop-${browser}`,
+            'exchange': 'backstop-worker',
+            'routing': 'tests'
+        };
+    });
+
+    return config;
+}
+
+const rabbitConfiguration = getRabbitConfig();
 
 let rabbitConnection = undefined;
 let rabbitChannel = undefined;
@@ -61,12 +75,13 @@ function delay(t, v) {
 /**
  * Publish the message to rabbit.
  *
+ * @param {string} browser
  * @param {Array|ArrayBuffer|SharedArrayBuffer|Buffer|string} message
  * @return {Promise<any | never>}
  */
-function rabbitWrite(message) {
+function rabbitWrite(browser, message) {
     return new Promise(resolve => {
-        rabbitChannel.publish(rabbitConfiguration['puppeteer']['exchange'], rabbitConfiguration['puppeteer']['routing'], Buffer.from(message), {
+        rabbitChannel.publish(rabbitConfiguration[browser]['exchange'], rabbitConfiguration[browser]['routing'], Buffer.from(message), {
             contentType: 'application/json'
         });
         const msgTxt = message + " : Message sent at " + new Date();
@@ -81,24 +96,19 @@ function rabbitWrite(message) {
 
 /**
  *
+ * @param {string} browser
  * @param {Object} test
- * @return {PromiseLike<T | never>}
+ * @return {Promise<T | never>}
  */
-function rabbitWriteTest(test) {
+function rabbitWriteTest(browser, test) {
     const message = JSON.stringify(test);
-    return rabbitWrite(message);
+    return rabbitWrite(browser, message);
 }
 
 function connect() {
     const connectionString = process.env.COMPOSE_RABBITMQ_URL;
-
-    if (connectionString === undefined) {
-        console.error("Please set the COMPOSE_RABBITMQ_URL environment variable");
-        throw new Error("Please set the COMPOSE_RABBITMQ_URL environment variable");
-    }
-
     const parsedurl = url.parse(connectionString);
-    amqp.connect(connectionString, { servername: parsedurl.hostname })
+    return amqp.connect(connectionString, { servername: parsedurl.hostname })
         .then((conn) => {
             // Create a listener for each of the signals that we want to handle
             Object.keys(signals).forEach((signal) => {
@@ -113,15 +123,16 @@ function connect() {
             return conn.createChannel();
         })
         .then(ch => {
-            return ch.assertExchange(rabbitConfiguration['puppeteer']['exchange'], 'direct', {})
+            // @todo: Add multiple channels, one for each browser.
+            return ch.assertExchange(rabbitConfiguration['chrome']['exchange'], 'direct', {})
                 .then(() => {
-                    return ch.assertQueue(rabbitConfiguration['puppeteer']['queue'], {});
+                    return ch.assertQueue(rabbitConfiguration['chrome']['queue'], {});
                 })
                 .then(() => {
                     return ch.prefetch(1);
                 })
                 .then(q => {
-                    return ch.bindQueue(q.queue, rabbitConfiguration['puppeteer']['exchange'], rabbitConfiguration['puppeteer']['routing']);
+                    return ch.bindQueue(q.queue, rabbitConfiguration['chrome']['exchange'], rabbitConfiguration['chrome']['routing']);
                 })
                 .then(() => {
                     rabbitChannel = ch;
@@ -141,8 +152,6 @@ function connect() {
             });
         });
 }
-
-connect();
 
 // App
 const app = express();
@@ -202,10 +211,6 @@ function verifyTestConfig(config) {
         errors.push('The required id field is missing from the test.');
     }
 
-    if (!config.hasOwnProperty('engine') || !supportedEngines.includes(config['engine'])) {
-        errors.push('The required "engine" field is invalid or missing from the test.');
-    }
-
     if (!config.hasOwnProperty('viewports') || !Array.isArray(config['viewports']) || config['viewports'].length === 0) {
         errors.push('The required "viewports" field is invalid or missing from the test.');
     }
@@ -218,14 +223,15 @@ function verifyTestConfig(config) {
 
 // @todo: Implement bulk-add?
 
+// @todo: Move validations into a custom middleware.
+// @see https://expressjs.com/en/guide/using-middleware.html
 app.post('/api/v1/test/add', asyncHandlerMiddleware(async function (req, res) {
     if (undefined === req.body) { // || req.body.length === 0
         res.statusCode = 400;
         return res.json({message: 'Empty request.'});
     }
 
-    let testConfig = req.body;
-
+    const testConfig = req.body.test_config;
     // @todo: testConfig should be in req.body.test
     // Body should contain the following:
     // Run type: A/B or before-after
@@ -241,8 +247,28 @@ app.post('/api/v1/test/add', asyncHandlerMiddleware(async function (req, res) {
         });
     }
 
+    // Note: A standard backstop config includes an "engine" field. We don't care about that,
+    // it's up to the  worker to update it according to its configuration.
+    // @todo: Expose endpoint so others can query the "supported" lists.
+    const browser = req.body.browser;
+    if (!supportedBrowsers.includes(browser)) {
+        console.error(`Request for unsupported "${browser}" browser.`);
+    }
+
+    const mode = req.body.mode;
+    if (!supportedModes.hasOwnProperty(mode)) {
+        console.error(`Request for unsupported "${mode}" mode.`);
+    }
+
+    // @problem: Before/After needs to be stateful, currently this is not really the case.
+    // @todo: Figure out how to make this work. Maybe add a database?
+    const stage = req.body.stage;
+    if (supportedModes[mode].length > 0 && !supportedModes[mode].includes(stage)) {
+        console.error(`Request for unsupported "${stage}" stage.`);
+    }
+
     try {
-        await rabbitWriteTest(testConfig);
+        await rabbitWriteTest(browser, testConfig);
         return res.json({
             message: 'The test has been added to the queue.',
             test: testConfig
@@ -259,12 +285,7 @@ app.post('/api/v1/test/add', asyncHandlerMiddleware(async function (req, res) {
     }
 }));
 
-const server = app.listen(PORT, HOST, function () {
-    console.log(`Running on http://${HOST}:${PORT}`);
-});
-
-// The signals we want to handle
-// NOTE: although it is tempting, the SIGKILL signal (9) cannot be intercepted and handled
+let server = undefined;
 
 // Do any necessary shutdown logic for our application here
 const shutdown = (signal, value) => {
@@ -274,10 +295,21 @@ const shutdown = (signal, value) => {
         process.exitCode = 128 + value;
     });
 };
-// Create a listener for each of the signals that we want to handle
-Object.keys(signals).forEach((signal) => {
-    process.on(signal, () => {
-        console.log(`process received a ${signal} signal`);
-        shutdown(signal, signals[signal]);
+
+connect().then(() => {
+    server = app.listen(PORT, HOST, function () {
+        console.log(`Running on http://${HOST}:${PORT}`);
     });
-});
+
+    // Create a listener for each of the signals that we want to handle
+    Object.keys(signals).forEach((signal) => {
+        process.on(signal, () => {
+            console.log(`process received a ${signal} signal`);
+            shutdown(signal, signals[signal]);
+        });
+    });
+
+})
+    .catch(error => {
+        console.log(`Error while connecting to RabbitMQ: ${error}`);
+    });
