@@ -73,20 +73,11 @@ services:
       interval: 60s
       timeout: 10s
       retries: 5
+    restart: on-failure
     labels:
     - "traefik.port=5672"
   #      - "traefik.backend=rabbitmq"
   #      - 'traefik.frontend.rule=Host:rabbitmq.${PROJECT_BASE_URL}'
-
-  portainer:
-    image: portainer/portainer
-    command: --no-auth -H unix:///var/run/docker.sock
-    volumes:
-    - /var/run/docker.sock:/var/run/docker.sock
-    labels:
-    - 'traefik.backend=portainer'
-    - 'traefik.port=9000'
-    - 'traefik.frontend.rule=Host:portainer.${PROJECT_BASE_URL}'
 
   traefik:
     image: traefik:v1.6.5-alpine # The official Traefik docker image
