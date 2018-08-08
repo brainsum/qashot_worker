@@ -10,7 +10,7 @@ services:
 #    - "COMPOSE_RABBITMQ_URL=amqp://user:bitnami@rabbitmq"
     volumes:
     - ./frontend:/home/node/app
-    restart: no
+    restart: "no"
 
   backstopjs_worker_chrome:
     build:
@@ -24,7 +24,7 @@ services:
 #    - "COMPOSE_RABBITMQ_URL=amqp://user:bitnami@rabbitmq"
     volumes:
     - ./backstopjs_worker:/home/node/app
-    restart: no
+    restart: "no"
 
 #  # @todo: Implement this.
 #  backstopjs_worker_firefox:
@@ -39,7 +39,7 @@ services:
 #      - "COMPOSE_RABBITMQ_URL=amqp://user:bitnami@rabbitmq"
 #    volumes:
 #      - ./backstopjs_worker:/home/node/app
-#    restart: no
+#    restart: "no"
 
   portainer:
     image: portainer/portainer
@@ -50,10 +50,10 @@ services:
     - 'traefik.backend=portainer'
     - 'traefik.port=9000'
     - 'traefik.frontend.rule=Host:portainer.${PROJECT_BASE_URL}'
-    restart: no
+    restart: "no"
 
   rabbitmq:
-    restart: no
+    restart: "no"
 
   traefik:
-    restart: no
+    restart: "no"
