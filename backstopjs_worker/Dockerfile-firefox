@@ -1,0 +1,44 @@
+FROM node:10.7.0-alpine
+
+LABEL maintainer="mhavelant"
+
+# @see: https://github.com/docksal/backstopjs/blob/master/Dockerfile
+ENV PATH="/home/node/app/node_modules/.bin:${PATH}" \
+	# Workaround to fix phantomjs-prebuilt installation errors
+	# See https://github.com/Medium/phantomjs/issues/707
+	NPM_CONFIG_UNSAFE_PERM=true \
+	MOZ_HEADLESS=1
+
+RUN \
+#    echo "http://dl-4.alpinelinux.org/alpine/v3.7/main" >> /etc/apk/repositories && \
+    apk update && apk add --no-cache tini \
+#    firefox \
+    firefox-esr \
+    dbus \
+    dbus-x11 \
+    ttf-freefont \
+    fontconfig && \
+    rm -rf /var/cache/apk/*
+
+ENTRYPOINT ["/sbin/tini", "--"]
+
+WORKDIR /home/node/app
+
+COPY package*.json ./
+
+RUN npm install && \
+    npm cache -g clean --force && \
+#    usermod -a -G audio,video node && \
+    mkdir -p /home/node/Downloads && \
+    mkdir -p /home/node/app/runtime/firefox && \
+    chown -R node:node /home/node
+
+#RUN npm install --only=production
+
+COPY . .
+
+EXPOSE 8080
+
+USER node
+
+CMD ["npm", "start"]

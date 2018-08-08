@@ -7,7 +7,6 @@ services:
     environment:
     - "NODE_ENV=development"
     - "DEBUG='express:*'"
-#    - "COMPOSE_RABBITMQ_URL=amqp://user:bitnami@rabbitmq"
     volumes:
     - ./frontend:/home/node/app
     restart: "no"
@@ -20,26 +19,21 @@ services:
     environment:
     - "NODE_ENV=development"
     - "DEBUG='express:*'"
-#    - "WORKER_BROWSER=chrome"
-#    - "COMPOSE_RABBITMQ_URL=amqp://user:bitnami@rabbitmq"
     volumes:
     - ./backstopjs_worker:/home/node/app
     restart: "no"
 
-#  # @todo: Implement this.
-#  backstopjs_worker_firefox:
-#    build:
-#      context: ./backstopjs_worker
-#      dockerfile: Dockerfile-firefox
-#    command: ["nodemon", "index.js"]
-#    environment:
-#      - "NODE_ENV=development"
-#      - "DEBUG='express:*'"
-#      - "WORKER_BROWSER=firefox"
-#      - "COMPOSE_RABBITMQ_URL=amqp://user:bitnami@rabbitmq"
-#    volumes:
-#      - ./backstopjs_worker:/home/node/app
-#    restart: "no"
+  backstopjs_worker_firefox:
+    build:
+      context: ./backstopjs_worker
+      dockerfile: Dockerfile-firefox
+    command: ["nodemon", "index.js"]
+    environment:
+      - "NODE_ENV=development"
+      - "DEBUG='express:*'"
+    volumes:
+      - ./backstopjs_worker:/home/node/app
+    restart: "no"
 
   portainer:
     image: portainer/portainer

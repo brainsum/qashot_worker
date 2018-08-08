@@ -16,7 +16,7 @@ services:
     - "traefik.port=8080"
 
   backstopjs_worker_chrome:
-    image: brainsum/qashot_worker_backstopjs_chrome:0.2.10
+    image: brainsum/qashot_worker_backstopjs_chrome:0.2.11
     environment:
     - "NODE_ENV=production"
     - "WORKER_BROWSER=chrome"
@@ -33,23 +33,22 @@ services:
     - "traefik.port=8080"
     - "traefik.backend.loadbalancer.method=drr"
 
-  #  # @todo: Implement this.
-  #  backstopjs_worker_firefox:
-  #    image: brainsum/qashot_worker_backstopjs_firefox:0.2.9
-  #    environment:
-  #      - "NODE_ENV=production"
-  #      - "WORKER_BROWSER=firefox"
-  #      - "WORKER_ENGINE=slimerjs"
-  #      - "COMPOSE_RABBITMQ_URL=amqp://user:bitnami@rabbitmq"
-  #      - "JWT_SECRET_KEY=${JWT_SECRET_KEY}"
-  #    depends_on:
-  #      - frontend
-  #    restart: on-failure
-  #    labels:
-  #    - "traefik.backend=backstopjs_worker_firefox"
-  #    - "traefik.frontend.rule=Host:backstopjs-worker-firefox.${PROJECT_BASE_URL}"
-  #    - "traefik.port=8080"
-  #    - "traefik.backend.loadbalancer.method=drr"
+  backstopjs_worker_firefox:
+    image: brainsum/qashot_worker_backstopjs_firefox:0.1.0
+    environment:
+      - "NODE_ENV=production"
+      - "WORKER_BROWSER=firefox"
+      - "WORKER_ENGINE=slimerjs"
+      - "COMPOSE_RABBITMQ_URL=amqp://user:bitnami@rabbitmq"
+      - "JWT_SECRET_KEY=${JWT_SECRET_KEY}"
+    depends_on:
+      - frontend
+    restart: on-failure
+    labels:
+    - "traefik.backend=backstopjs_worker_firefox"
+    - "traefik.frontend.rule=Host:backstopjs-worker-firefox.${PROJECT_BASE_URL}"
+    - "traefik.port=8080"
+    - "traefik.backend.loadbalancer.method=drr"
 
   rabbitmq:
     image: bitnami/rabbitmq:3.7.7
