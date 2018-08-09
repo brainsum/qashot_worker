@@ -1,22 +1,25 @@
 FROM node:10.7.0-alpine
 
-ENV PATH="/home/node/app/node_modules/.bin:$PATH"
+LABEL maintainer="mhavelant"
 
-RUN apk add --no-cache tini
-# Tini is now available at /sbin/tini
 ENTRYPOINT ["/sbin/tini", "--"]
 
-WORKDIR /home/node/app
-
-COPY package*.json ./
-
-RUN npm install
-#RUN npm install --only=production
-
-COPY . .
+CMD ["npm", "start"]
 
 EXPOSE 8080
 
-USER node
+WORKDIR /home/node/app
 
-CMD ["npm", "start"]
+ENV PATH="/home/node/app/node_modules/.bin:$PATH"
+
+RUN apk add --no-cache tini
+
+COPY package*.json ./
+
+RUN npm install --only=production && \
+    npm cache -g clean --force && \
+    chown -R node:node /home/node
+
+COPY . .
+
+USER node
