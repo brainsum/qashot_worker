@@ -7,34 +7,14 @@ ENV PATH="/home/node/app/node_modules/.bin:${PATH}" \
 	# Workaround to fix phantomjs-prebuilt installation errors
 	# See https://github.com/Medium/phantomjs/issues/707
 	NPM_CONFIG_UNSAFE_PERM=true \
-	FIREFOX_VERSION=59.0 \
-	TINI_VERSION=v0.18.0 \
-	MOZ_HEADLESS=1
+	TINI_VERSION=v0.18.0
 
 RUN \
-    wget "http://ftp.mozilla.org/pub/firefox/releases/${FIREFOX_VERSION}/linux-$(uname -m)/en-US/firefox-${FIREFOX_VERSION}.tar.bz2" && \
-    tar -xjf firefox-${FIREFOX_VERSION}.tar.bz2 && \
-    mv firefox /opt/ && \
-    ln -s /opt/firefox/firefox /usr/bin/firefox && \
-    # Tini.
     wget https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini -O /sbin/tini && \
     chmod +x /sbin/tini
 
 RUN \
     apt-get update && apt-get install -y --no-install-recommends \
-        libc6 \
-        libstdc++6 \
-        libgcc1 \
-        libasound2 \
-        libxrender1 \
-        libdbus-glib-1-2 \
-        libgtk-3-0 \
-        libglib2.0 \
-        libx11-xcb1 \
-        libcogl-pango20 \
-        dbus-x11 \
-        ttf-freefont \
-        fontconfig \
         ca-certificates \
         software-properties-common \
         python-software-properties && \
@@ -56,7 +36,7 @@ RUN npm install --only=production && \
     npm cache -g clean --force && \
     usermod -a -G audio,video node && \
     mkdir -p /home/node/Downloads && \
-    mkdir -p /home/node/app/runtime/firefox && \
+    mkdir -p /home/node/app/runtime/phantomjs && \
     chown -R node:node /home/node
 
 COPY . .

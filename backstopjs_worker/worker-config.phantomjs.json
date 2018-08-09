@@ -4,6 +4,7 @@
   "scriptsFolder": "casper_scripts",
   "engineOptions": {
     "backstopKey": "casperFlags",
-    "options": {}
+    "options": [
+    ]
   }
 }

@@ -23,8 +23,6 @@ function preFlightCheck() {
 
 preFlightCheck();
 
-// @todo: Check the "request" module, maybe it's more convenient.
-const client = require('http');
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
@@ -110,6 +108,17 @@ function delay(t, v) {
     });
 }
 
+// const defaultTestConfig = {
+//     'paths': {
+//       'engine_scripts': (workerConfig['browser'] === 'phantomjs') ? path.join('templates', workerConfig['scriptsFolder']) : path.join(__dirname, 'templates', workerConfig['scriptsFolder'])
+//     },
+//     'engine': workerConfig['engine'],
+//     'asyncCaptureLimit': 10,
+//     'asyncCompareLimit': 10,
+//     'debug': (process.env.DEBUG === true),
+//     'debugWindow': (process.env.DEBUG_WINDOW === true)
+// };
+
 function rabbitTestLoop() {
     console.time('rabbitTestLoop');
 
@@ -119,13 +128,12 @@ function rabbitTestLoop() {
             // const originalBackstopConfig = data;
             let backstopConfig = data;
             console.log('Data received. Config ID is: ' + backstopConfig['id']);
-
             const templates = path.join(__dirname, 'templates');
             const currentRuntime = path.join(__dirname, 'runtime', workerConfig['browser'], backstopConfig['id']);
             ensureDirectory(currentRuntime);
 
             backstopConfig['paths'] = {
-                "engine_scripts": path.join(templates, workerConfig['scriptsFolder']),
+                "engine_scripts": (workerConfig['browser'] === 'phantomjs') ? path.join('templates', workerConfig['scriptsFolder']) : path.join(templates, workerConfig['scriptsFolder']),
                 "bitmaps_reference": path.join(currentRuntime, "reference"),
                 "bitmaps_test": path.join(currentRuntime, "test"),
                 "html_report": path.join(currentRuntime, "html_report"),
@@ -138,6 +146,8 @@ function rabbitTestLoop() {
 
             backstopConfig['engine'] = workerConfig['engine'];
             backstopConfig[workerConfig['engineOptions']['backstopKey']] = workerConfig['engineOptions']['options'];
+            backstopConfig['asyncCaptureLimit'] = 10;
+            backstopConfig['asyncCompareLimit'] = 10;
 
             if (process.env.DEBUG === true) {
                 backstopConfig['debug'] = true;
@@ -233,20 +243,6 @@ function rabbitRead() {
 
 // App
 const app = express();
-app.get('/', (req, res) => {
-    client.get('http://frontend:8080/', (response) => {
-        let data = '';
-        response.on('data', (chunk) => {
-            data += chunk;
-        });
-
-        response.on('end', () => {
-            res.send("Hello there! " + data);
-        });
-    });
-});
-
-
 let server = undefined;
 
 // Do any necessary shutdown logic for our application here

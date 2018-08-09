@@ -3,7 +3,8 @@
   "engine": "slimerjs",
   "scriptsFolder": "casper_scripts",
   "engineOptions": {
-    "backstopKey": "engineOptions",
-    "options": {}
+    "backstopKey": "casperFlags",
+    "options": [
+    ]
   }
 }
