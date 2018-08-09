@@ -28,6 +28,11 @@ Docker and Docker-compose with docker-compose.yml v3 support.
 @todo
 ### BackstopJS Worker
 @todo
+### BackstopJS Firefox Worker
+For some reason BackstopJS 3.5.2 does not work properly when using SlimerJS.
+This means, for the tool to work, we need to use older versions and xvfb.
+This is only a temporary solution, but should work for now.
+Current version for backstop: 3.0.26
 
 ## Components (community)
 ### Traefik
