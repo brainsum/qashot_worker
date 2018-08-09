@@ -5,6 +5,8 @@ if [ ! -f ./vendor/hadolint ]; then
     exit 1
 fi
 
+echo "Linting files with $(./vendor/hadolint --version)"
+
 ./vendor/hadolint ./frontend/Dockerfile
 ./vendor/hadolint ./backstopjs_worker/Dockerfile-chrome
 ./vendor/hadolint ./backstopjs_worker/Dockerfile-firefox
