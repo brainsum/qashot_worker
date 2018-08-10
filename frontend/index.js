@@ -3,7 +3,7 @@
 function preFlightCheck() {
     const requiredEnvVars = [
         'SUPPORTED_BROWSERS',
-        'COMPOSE_RABBITMQ_URL',
+        'INTERNAL_RABBITMQ_URL',
         'JWT_SECRET_KEY'
     ];
 
@@ -148,9 +148,9 @@ function createChannels() {
 }
 
 function connect() {
-    const connectionString = process.env.COMPOSE_RABBITMQ_URL;
-    const parsedurl = url.parse(connectionString);
-    return amqp.connect(connectionString, { servername: parsedurl.hostname })
+    const rabbitMqInternalURL = process.env.INTERNAL_RABBITMQ_URL;
+    const parsedurl = url.parse(rabbitMqInternalURL);
+    return amqp.connect(rabbitMqInternalURL, { servername: parsedurl.hostname })
         .then((conn) => {
             // Create a listener for each of the signals that we want to handle
             Object.keys(signals).forEach((signal) => {

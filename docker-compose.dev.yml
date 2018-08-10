@@ -29,10 +29,10 @@ services:
       dockerfile: Dockerfile-firefox
     command: ["nodemon", "index.js"]
     environment:
-      - "NODE_ENV=development"
-      - "DEBUG='express:*'"
+    - "NODE_ENV=development"
+    - "DEBUG='express:*'"
     volumes:
-      - ./backstopjs_firefox_worker:/home/node/app
+    - ./backstopjs_firefox_worker:/home/node/app
     restart: "no"
 
   backstopjs_worker_phantomjs:
@@ -58,8 +58,10 @@ services:
     - 'traefik.frontend.rule=Host:portainer.${PROJECT_BASE_URL}'
     restart: "no"
 
-  rabbitmq:
+  internal_rabbitmq:
     restart: "no"
 
   traefik:
     restart: "no"
+    ports:
+    - "8080:8080" # The Web UI (enabled by --api)

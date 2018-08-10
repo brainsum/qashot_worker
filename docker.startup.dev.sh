@@ -11,3 +11,5 @@ docker-compose ${COMPOSE_FILES} up ${COMPOSE_MISC_OPTIONS} ${COMPOSE_SCALE_CHROM
 echo "Waiting a bit for services to start up.."
 sleep 4
 docker-compose ps
+
+#docker-compose logs -f
