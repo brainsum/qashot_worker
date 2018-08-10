@@ -18,10 +18,13 @@ Docker and Docker-compose with docker-compose.yml v3 support.
 - Clone the repo
 - Copy ```.env.example``` as ```.env``` and update the keys for your environment
 - Create a ```runtime``` folder in the project root
-- Create a ```rabbitmq_data``` folder with ```user:group -> 1001:1001``` in the project root ```runtime``` folder
-- (optional) Create a ```runtime``` folder in the ```backstopjs_worker``` folder
-- Use ```docker.startup.dev.sh``` or ```docker.startup.prod.sh```
-    - *Note*: Dev will build the docker images if not already present on the machine. This might take several minutes and use lots of resources.
+- Create an ```internal_rabbitmq_data``` folder with ```user:group -> 1001:1001``` in the project root ```runtime``` folder
+- Create an ```exposed_rabbitmq_data``` folder with ```user:group -> 1001:1001``` in the project root ```runtime``` folder
+- Use the ```docker.deploy.prod.sh``` script
+    - *Note*: This is going to rebuild the images. This might take several minutes and use lots of resources.
+        - This is going to change once the stack is in an actual prod-ready state. Then, the building of the images will be handled by a CI/CD platform.
+    - *Note*: Although the source code will be available on the host, it is going to be built into the images. This means, unless the stack is restarted with the ```docker.restart.dev.sh``` script, changing the code on host is not going to do anything.
+    - *Note*: Starting with dev requires ```nodemon``` to be installed. This is a dev dependency that's not available in the image, so you have to manually edit the ```docker-compose.dev.yml``` command option or use ```npm install``` locally so it gets mounted to the image.
 
 ## Components (custom)
 ### Frontend

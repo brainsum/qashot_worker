@@ -114,6 +114,34 @@ services:
     - internal
     - exposed
 
+  exposed_rabbitmq:
+    image: bitnami/rabbitmq:3.7.7
+    environment:
+    - "RABBITMQ_USERNAME=user"
+    - "RABBITMQ_PASSWORD=bitnami"
+    - "RABBITMQ_VHOST=/"
+    - "RABBITMQ_NODE_TYPE=stats"
+    - "RABBITMQ_NODE_PORT_NUMBER=5682"
+    - "RABBITMQ_MANAGER_PORT_NUMBER=15682"
+    - "RABBITMQ_DISK_FREE_LIMIT={mem_relative, 1.0}"
+    - "RABBITMQ_ULIMIT_NOFILES=65536"
+    volumes:
+    - ./runtime/exposed_rabbitmq_data:/bitnami
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:15682"]
+      interval: 60s
+      timeout: 10s
+      retries: 5
+    restart: on-failure
+    networks:
+    - exposed
+    - internal
+    labels:
+    - "traefik.port=5682"
+    - "traefik.enable=true"
+    - "traefik.backend=exposed_rabbitmq"
+    - 'traefik.frontend.rule=Host:exposed-rabbitmq.${PROJECT_BASE_URL}'
+
   # Other.
   traefik:
     image: traefik:v1.6.5-alpine # The official Traefik docker image
