@@ -25,8 +25,7 @@
   "dependencies": {
     "amqplib": "^0.5.2",
     "backstopjs": "^3.0.26",
-    "express": "^4.16.3",
-    "slimerjs": "^1.0.0"
+    "express": "^4.16.3"
   },
   "devDependencies": {
     "eslint": "^5.2.0",
