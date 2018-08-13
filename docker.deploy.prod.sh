@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 git pull
-./docker.build.sh
+./docker.build.sh && \
+    ./docker.restart.prod.sh
+
 ./docker.cleanup.sh
-./docker.restart.prod.sh
