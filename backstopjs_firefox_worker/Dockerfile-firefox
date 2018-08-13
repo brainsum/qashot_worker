@@ -41,7 +41,7 @@ RUN \
         fontconfig \
         ca-certificates \
         software-properties-common \
-        python-software-properties && \
+        python-software-properties \
         firefox-esr=${FIREFOX_ESR_VERSION} && \
     # Cleanupetc
     apt-get -y clean && \
