@@ -228,6 +228,16 @@ app.get('/', function (req, res) {
 function verifyTestConfig(config) {
     let errors = [];
 
+    if ('undefined' === typeof config || null === config || !config) {
+        errors.push('The test configuration is empty.');
+        return errors;
+    }
+
+    if (config.constructor !== Object) {
+        errors.push('The test configuration is not an Object.');
+        return errors;
+    }
+
     if (!config.hasOwnProperty('id')) {
         errors.push('The required id field is missing from the test.');
     }
