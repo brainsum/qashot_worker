@@ -2,6 +2,17 @@ FROM node:10.7.0
 
 LABEL maintainer="mhavelant"
 
+ENTRYPOINT ["/sbin/tini", "--"]
+
+CMD ["npm", "start"]
+
+EXPOSE 8080
+
+WORKDIR /home/node/app
+
+HEALTHCHECK --interval=20s --timeout=3s --retries=3 \
+    CMD node healthcheck.js
+
 # @see: https://github.com/docksal/backstopjs/blob/master/Dockerfile
 ENV PATH="/home/node/app/node_modules/.bin:${PATH}" \
 	# Workaround to fix phantomjs-prebuilt installation errors
@@ -48,8 +59,6 @@ RUN \
         /tmp/* \
         /var/tmp/*
 
-WORKDIR /home/node/app
-
 COPY package*.json ./
 
 RUN npm install --only=production && \
@@ -61,10 +70,4 @@ RUN npm install --only=production && \
 
 COPY . .
 
-EXPOSE 8080
-
 USER node
-
-ENTRYPOINT ["/sbin/tini", "--"]
-
-CMD ["npm", "start"]

@@ -24,6 +24,7 @@ function preFlightCheck() {
 preFlightCheck();
 
 const express = require('express');
+const terminus = require('@godaddy/terminus');
 const path = require('path');
 const fs = require('fs');
 const backstop = require('backstopjs');
@@ -51,12 +52,6 @@ function ensureDirectory(path) {
         fs.mkdirSync(path, 0o775);
     }
 }
-
-const signals = {
-    'SIGHUP': 1,
-    'SIGINT': 2,
-    'SIGTERM': 15
-};
 
 const PORT = 8080;
 const HOST = '0.0.0.0';
@@ -204,15 +199,23 @@ function rabbitTestLoop() {
 }
 
 function connect() {
-    const rabbitMqInternalURL = process.env.INTERNAL_RABBITMQ_URL;
-    const parsedurl = url.parse(rabbitMqInternalURL);
-    return amqp.connect(rabbitMqInternalURL, { servername: parsedurl.hostname })
-        .then((conn) => {
-            // Create a listener for each of the signals that we want to handle
-            Object.keys(signals).forEach((signal) => {
-                process.on(signal, function() { conn.close(); });
-            });
+    const parsedUrl = url.parse(process.env.INTERNAL_RABBITMQ_URL);
+    const auth = parsedUrl.auth.split(':');
+    const connectionOptions = {
+        protocol: 'amqp',
+        hostname: parsedUrl.hostname,
+        port: 5672,
+        username: auth[0],
+        password: auth[1],
+        locale: 'en_US',
+        frameMax: 0,
+        channelMax: 0,
+        heartbeat: 30,
+        vhost: '/',
+    };
 
+    return amqp.connect(connectionOptions)
+        .then((conn) => {
             console.log('Connection to RabbitMQ has been established.');
             rabbitConnection = conn;
             return conn;
@@ -279,29 +282,78 @@ function rabbitRead() {
 const app = express();
 let server = undefined;
 
-// Do any necessary shutdown logic for our application here
-const shutdown = (signal, value) => {
-    console.log("shutdown!");
-    server.close(() => {
-        console.log(`server stopped by ${signal} with value ${value}`);
-        process.exitCode = 128 + value;
-    });
+function beforeShutdown () {
+  // given your readiness probes run every 5 second
+  // may be worth using a bigger number so you won't
+  // run into any race conditions
+  return new Promise(resolve => {
+    setTimeout(resolve, 5000)
+  })
+}
+
+function onSignal () {
+  console.log('server is starting cleanup');
+  return Promise.all([
+    rabbitConnection.close(),
+    server.close()
+  ]);
+}
+
+function onShutdown () {
+  console.log('cleanup finished, server is shutting down');
+}
+
+function livenessCheck() {
+  console.log('Probing for liveness..');
+  return Promise.resolve()
+}
+
+function readinessCheck () {
+  console.log('Probing for readiness..');
+  const serverReadiness = new Promise((resolve, reject) => {
+    if ('undefined' === typeof server || null === server.address()) {
+      return reject('The server is down.');
+    }
+
+    return resolve('The server is alive.');
+  });
+
+  return Promise.all([
+    serverReadiness
+  ]);
+}
+
+const signals = [
+  'SIGHUP',
+  'SIGINT',
+  'SIGUSR2',
+];
+
+const terminusOptions = {
+  // Healtcheck options.
+  healthChecks: {
+    '/health/liveness': livenessCheck,    // Function indicating if the service is running or not.
+    '/health/readiness': readinessCheck,    // Function indicating if the service can accept requests or not.
+  },
+
+  // cleanup options
+  timeout: 1000,                   // [optional = 1000] number of milliseconds before forcefull exiting
+  // signal,                          // [optional = 'SIGTERM'] what signal to listen for relative to shutdown
+  signals,                          // [optional = []] array of signals to listen for relative to shutdown
+  beforeShutdown,                  // [optional] called before the HTTP server starts its shutdown
+  onSignal,                        // [optional] cleanup function, returning a promise (used to be onSigterm)
+  onShutdown,                      // [optional] called right before exiting
+
+  // both
+  // logger                           // [optional] logger function to be called with errors
 };
 
 connect().then(() => {
-    server = app.listen(PORT, HOST, function () {
-        console.log(`Running on http://${HOST}:${PORT}`);
-    });
-
-    // Create a listener for each of the signals that we want to handle
-    Object.keys(signals).forEach((signal) => {
-        process.on(signal, () => {
-            console.log(`process received a ${signal} signal`);
-            shutdown(signal, signals[signal]);
-        });
-    });
-
+  server = app.listen(PORT, HOST, function () {
+    console.log(`Running on http://${HOST}:${PORT}`);
+    terminus(server, terminusOptions);
+  });
 })
-    .catch(error => {
-        console.log(`Error while connecting to RabbitMQ: ${error}`);
-    });
+.catch(error => {
+  console.log(`Error while connecting to RabbitMQ: ${error}`);
+});

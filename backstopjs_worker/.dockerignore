@@ -6,4 +6,3 @@ Dockerfile*
 .gitignore
 .eslintrc.yml
 tmp
-runtime

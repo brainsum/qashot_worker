@@ -1,4 +1,4 @@
-version: "3"
+version: "3.7"
 services:
   # Internal only.
   backstopjs_worker_chrome:
@@ -19,8 +19,16 @@ services:
     - "traefik.port=8080"
     - "traefik.backend.loadbalancer.method=drr"
     - "traefik.enable=false"
+    - "traefik.docker.network=internal"
     networks:
     - internal
+    volumes:
+      - chrome_runtime:/home/node/app/runtime/chrome
+    healthcheck:
+      test: ["CMD", "node", "healthcheck.js"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
   backstopjs_worker_firefox:
     image: brainsum/qashot_worker_backstopjs_firefox:0.1.0
@@ -40,8 +48,16 @@ services:
     - "traefik.port=8080"
     - "traefik.backend.loadbalancer.method=drr"
     - "traefik.enable=false"
+    - "traefik.docker.network=internal"
     networks:
     - internal
+    volumes:
+    - firefox_runtime:/home/node/app/runtime/firefox
+    healthcheck:
+      test: ["CMD", "node", "healthcheck.js"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
   backstopjs_worker_phantomjs:
     image: brainsum/qashot_worker_backstopjs_phantomjs:0.1.0
@@ -61,8 +77,16 @@ services:
     - "traefik.port=8080"
     - "traefik.backend.loadbalancer.method=drr"
     - "traefik.enable=false"
+    - "traefik.docker.network=internal"
     networks:
     - internal
+    volumes:
+    - phantomjs_runtime:/home/node/app/runtime/phantomjs
+    healthcheck:
+      test: ["CMD", "node", "healthcheck.js"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
   internal_rabbitmq:
     image: bitnami/rabbitmq:3.7.7
@@ -77,9 +101,10 @@ services:
     - "RABBITMQ_ULIMIT_NOFILES=65536"
     volumes:
     - ./runtime/internal_rabbitmq_data:/bitnami
+    stop_grace_period: 10s
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:15672"]
-      interval: 60s
+      interval: 30s
       timeout: 10s
       retries: 5
     restart: on-failure
@@ -88,6 +113,7 @@ services:
     labels:
     - "traefik.port=5672"
     - "traefik.enable=false"
+    - "traefik.docker.network=internal"
     # - "traefik.backend=internal_rabbitmq"
     # - 'traefik.frontend.rule=Host:internal-rabbitmq.${PROJECT_BASE_URL}'
 
@@ -106,9 +132,37 @@ services:
     - "traefik.backend=frontend"
     - "traefik.frontend.rule=Host:${PROJECT_BASE_URL}"
     - "traefik.port=8080"
+    - "traefik.docker.network=internal,exposed"
     networks:
     - internal
     - exposed
+    volumes:
+    - type: volume
+      source: phantomjs_runtime
+      target: /home/node/app/runtime/phantomjs
+      read_only: true
+      volume:
+        nocopy: true
+
+    - type: volume
+      source: firefox_runtime
+      target: /home/node/app/runtime/firefox
+      read_only: true
+      volume:
+        nocopy: true
+
+    - type: volume
+      source: chrome_runtime
+      target: /home/node/app/runtime/chrome
+      read_only: true
+      volume:
+        nocopy: true
+    stop_grace_period: 10s
+    healthcheck:
+      test: ["CMD", "node", "healthcheck.js"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
   exposed_rabbitmq:
     image: bitnami/rabbitmq:3.7.7
@@ -117,15 +171,16 @@ services:
     - "RABBITMQ_PASSWORD=bitnami"
     - "RABBITMQ_VHOST=/"
     - "RABBITMQ_NODE_TYPE=stats"
-    - "RABBITMQ_NODE_PORT_NUMBER=5682"
-    - "RABBITMQ_MANAGER_PORT_NUMBER=15682"
+    - "RABBITMQ_NODE_PORT_NUMBER=5672"
+    - "RABBITMQ_MANAGER_PORT_NUMBER=15672"
     - "RABBITMQ_DISK_FREE_LIMIT={mem_relative, 1.0}"
     - "RABBITMQ_ULIMIT_NOFILES=65536"
     volumes:
     - ./runtime/exposed_rabbitmq_data:/bitnami
+    stop_grace_period: 10s
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:15682"]
-      interval: 60s
+      interval: 30s
       timeout: 10s
       retries: 5
     restart: on-failure
@@ -137,6 +192,7 @@ services:
     - "traefik.enable=true"
     - "traefik.backend=exposed_rabbitmq"
     - 'traefik.frontend.rule=Host:exposed-rabbitmq.${PROJECT_BASE_URL}'
+    - "traefik.docker.network=internal,exposed"
 
   # Other.
   traefik:
@@ -155,3 +211,7 @@ networks:
   internal: {}
   exposed: {}
 
+volumes:
+  chrome_runtime: {}
+  phantomjs_runtime: {}
+  firefox_runtime: {}

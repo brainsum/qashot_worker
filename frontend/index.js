@@ -23,21 +23,21 @@ function preFlightCheck() {
 preFlightCheck();
 
 const express = require('express');
+const helmet = require('helmet');
+const terminus = require('@godaddy/terminus');
+const asyncHandlerMiddleware = require('express-async-handler');
+const jwtHandlerMiddleware = require('express-jwt');
+
+const fs = require('fs');
+const path = require('path');
 const url = require('url');
 const amqp = require('amqplib');
 const util = require('util');
-const asyncHandlerMiddleware = require('express-async-handler');
-const jwtHandlerMiddleware = require('express-jwt');
+
 
 // Constants
 const PORT = 8080;
 const HOST = '0.0.0.0';
-
-const signals = {
-    'SIGHUP': 1,
-    'SIGINT': 2,
-    'SIGTERM': 15
-};
 
 const supportedBrowsers = process.env.SUPPORTED_BROWSERS.split(';');
 const supportedModes = {
@@ -63,6 +63,9 @@ function getRabbitConfig() {
 
 const rabbitConfiguration = getRabbitConfig();
 
+/**
+ * @type {undefined|ChannelModel}
+ */
 let rabbitConnection = undefined;
 let rabbitChannels = {};
 
@@ -148,15 +151,23 @@ function createChannels() {
 }
 
 function connect() {
-    const rabbitMqInternalURL = process.env.INTERNAL_RABBITMQ_URL;
-    const parsedurl = url.parse(rabbitMqInternalURL);
-    return amqp.connect(rabbitMqInternalURL, { servername: parsedurl.hostname })
-        .then((conn) => {
-            // Create a listener for each of the signals that we want to handle
-            Object.keys(signals).forEach((signal) => {
-                process.on(signal, function() { conn.close(); });
-            });
+    const parsedUrl = url.parse(process.env.INTERNAL_RABBITMQ_URL);
+    const auth = parsedUrl.auth.split(':');
+    const connectionOptions = {
+        protocol: 'amqp',
+        hostname: parsedUrl.hostname,
+        port: 5672,
+        username: auth[0],
+        password: auth[1],
+        locale: 'en_US',
+        frameMax: 0,
+        channelMax: 64,
+        heartbeat: 30,
+        vhost: '/',
+    };
 
+    return amqp.connect(connectionOptions)
+        .then((conn) => {
             console.log('Connection to RabbitMQ has been established.');
             rabbitConnection = conn;
             return conn;
@@ -177,6 +188,7 @@ function connect() {
 // App
 const app = express();
 
+app.use(helmet());
 app.use(express.json({
     strict: true
 }));
@@ -203,7 +215,7 @@ app.use(function (req, res, next) {
 });
 
 app.get('/', function (req, res) {
-  return res.json({ message: 'General Kenobi.'});
+  return res.status(200).json({ message: 'General Kenobi.'});
 });
 
 // function rabbitWriteMultiple(messages) {
@@ -258,8 +270,7 @@ function verifyTestConfig(config) {
 // @see https://expressjs.com/en/guide/using-middleware.html
 app.post('/api/v1/test/add', asyncHandlerMiddleware(async function (req, res) {
     if (undefined === req.body) { // || req.body.length === 0
-        res.statusCode = 400;
-        return res.json({message: 'Empty request.'});
+        return res.status(400).json({message: 'Empty request.'});
     }
 
     const testConfig = req.body.test_config;
@@ -271,8 +282,7 @@ app.post('/api/v1/test/add', asyncHandlerMiddleware(async function (req, res) {
     // Otherwise, B/A.
     const configErrors = verifyTestConfig(testConfig);
     if (configErrors.length !== 0) {
-        res.statusCode = 400;
-        return res.json({
+        return res.status(400).json({
             message: 'The config is not a valid test config.',
             errors: configErrors
         });
@@ -300,15 +310,14 @@ app.post('/api/v1/test/add', asyncHandlerMiddleware(async function (req, res) {
 
     try {
         await rabbitWriteTest(browser, testConfig);
-        return res.json({
+        return res.status(200).json({
             message: 'The test has been added to the queue.',
             test: testConfig
         });
     }
     catch (error) {
         console.log(error);
-        res.statusCode = 400;
-        return res.json({
+        return res.status(400).json({
             message: 'Could not add test to the queue.',
             test: testConfig,
             error: error
@@ -316,30 +325,109 @@ app.post('/api/v1/test/add', asyncHandlerMiddleware(async function (req, res) {
     }
 }));
 
+// @todo: Remove this, debug only.
+const serveStatic = require('serve-static');
+
+function resultsMiddleware(req, res, next) {
+    if ('GET' !== req.method) {
+        return res.end(`${req.method} method not supported.`);
+    }
+
+    const browser = req.params.browser;
+    const id = String(req.params.id);
+
+    if (!supportedBrowsers.includes(browser)) {
+        return res.status(400).send('There was an error while handling your request, please try again later.');
+    }
+
+    if (!id.match(/^[a-zA-Z0-9-_]+$/g)) {
+        return res.status(400).send('There was an error while handling your request, please try again later.');
+    }
+
+    if (!fs.existsSync(path.join(__dirname, 'runtime', browser, id, 'html_report', 'index.html'))) {
+        return res.status(400).send('There was an error while handling your request, please try again later.');
+    }
+
+    next();
+}
+
+app.use('/api/v1/reports/:browser/:id', resultsMiddleware);
+app.use(`/api/v1/reports`, serveStatic(path.join(__dirname, 'runtime')));
+// @todo: End of "Remove this".
+
 let server = undefined;
 
-// Do any necessary shutdown logic for our application here
-const shutdown = (signal, value) => {
-    console.log("shutdown!");
-    server.close(() => {
-        console.log(`server stopped by ${signal} with value ${value}`);
-        process.exitCode = 128 + value;
+function beforeShutdown () {
+    // given your readiness probes run every 5 second
+    // may be worth using a bigger number so you won't
+    // run into any race conditions
+    return new Promise(resolve => {
+        setTimeout(resolve, 5000)
+    })
+}
+
+function onSignal () {
+    console.log('server is starting cleanup');
+    return Promise.all([
+        rabbitConnection.close(),
+        server.close()
+    ]);
+}
+
+function onShutdown () {
+    console.log('cleanup finished, server is shutting down');
+}
+
+function livenessCheck() {
+    console.log('Probing for liveness..');
+    return Promise.resolve()
+}
+
+function readinessCheck () {
+    console.log('Probing for readiness..');
+    const serverReadiness = new Promise((resolve, reject) => {
+        if ('undefined' === typeof server || null === server.address()) {
+            return reject('The server is down.');
+        }
+
+        return resolve('The server is alive.');
     });
+
+    return Promise.all([
+        serverReadiness
+    ]);
+}
+
+const signals = [
+    'SIGHUP',
+    'SIGINT',
+    'SIGUSR2',
+];
+
+const terminusOptions = {
+    // Healtcheck options.
+    healthChecks: {
+        '/health/liveness': livenessCheck,    // Function indicating if the service is running or not.
+        '/health/readiness': readinessCheck,    // Function indicating if the service can accept requests or not.
+    },
+
+    // cleanup options
+    timeout: 1000,                   // [optional = 1000] number of milliseconds before forcefull exiting
+    // signal,                          // [optional = 'SIGTERM'] what signal to listen for relative to shutdown
+    signals,                          // [optional = []] array of signals to listen for relative to shutdown
+    beforeShutdown,                  // [optional] called before the HTTP server starts its shutdown
+    onSignal,                        // [optional] cleanup function, returning a promise (used to be onSigterm)
+    onShutdown,                      // [optional] called right before exiting
+
+    // both
+    // logger                           // [optional] logger function to be called with errors
 };
 
 connect().then(() => {
     server = app.listen(PORT, HOST, function () {
         console.log(`Running on http://${HOST}:${PORT}`);
+        terminus(server, terminusOptions);
     });
-
-    // Create a listener for each of the signals that we want to handle
-    Object.keys(signals).forEach((signal) => {
-        process.on(signal, () => {
-            console.log(`process received a ${signal} signal`);
-            shutdown(signal, signals[signal]);
-        });
-    });
-
 })
     .catch(error => {
         console.log(`Error while connecting to RabbitMQ: ${error}`);
