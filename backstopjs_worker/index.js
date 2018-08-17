@@ -30,7 +30,8 @@ const fs = require('fs');
 const backstop = require('backstopjs');
 const util = require('util');
 const url = require('url');
-const amqp = require('amqplib');
+
+const internalMessageQueue = require('./src/message-queue');
 
 function loadWorkerConfig() {
     const supportedBrowsers = [
@@ -56,14 +57,28 @@ function ensureDirectory(path) {
 const PORT = 8080;
 const HOST = '0.0.0.0';
 const workerConfig = loadWorkerConfig();
-const rabbitConfiguration = {
+let channelConfigurations = {};
+channelConfigurations[workerConfig.browser] = {
+    'name': workerConfig.browser,
     'queue': `backstop-${workerConfig.browser}`,
     'exchange': 'backstop-worker',
     'routing': `${workerConfig.browser}-tests`
 };
 
-let rabbitConnection = undefined;
-let rabbitChannel = undefined;
+const parsedUrl = url.parse(process.env.INTERNAL_RABBITMQ_URL);
+const auth = parsedUrl.auth.split(':');
+const connectionOptions = {
+    protocol: 'amqp',
+    hostname: parsedUrl.hostname,
+    port: 5672,
+    username: auth[0],
+    password: auth[1],
+    locale: 'en_US',
+    frameMax: 0,
+    channelMax: 0,
+    heartbeat: 30,
+    vhost: '/',
+};
 
 let commandMetrics = {};
 
@@ -245,7 +260,7 @@ function delay(t, v) {
 function rabbitTestLoop() {
     console.time('rabbitTestLoop');
 
-    rabbitRead()
+    internalMessageQueue.read(workerConfig.browser)
         .then(data => {
             // @todo: Maybe use this for something.
             // const originalBackstopConfig = data;
@@ -298,82 +313,6 @@ function rabbitTestLoop() {
                 rabbitTestLoop();
             });
         });
-
-}
-
-function connect() {
-    const parsedUrl = url.parse(process.env.INTERNAL_RABBITMQ_URL);
-    const auth = parsedUrl.auth.split(':');
-    const connectionOptions = {
-        protocol: 'amqp',
-        hostname: parsedUrl.hostname,
-        port: 5672,
-        username: auth[0],
-        password: auth[1],
-        locale: 'en_US',
-        frameMax: 0,
-        channelMax: 0,
-        heartbeat: 30,
-        vhost: '/',
-    };
-
-    return amqp.connect(connectionOptions)
-        .then((conn) => {
-            console.log('Connection to RabbitMQ has been established.');
-            rabbitConnection = conn;
-            return conn;
-        })
-        .then(conn => {
-            return conn.createChannel();
-        })
-        .then(ch => {
-            return ch.assertExchange(rabbitConfiguration.exchange, 'direct', {})
-                .then(() => {
-                    return ch.assertQueue(rabbitConfiguration.queue, {});
-                })
-                .then(() => {
-                    return ch.prefetch(1);
-                })
-                .then(q => {
-                    return ch.bindQueue(q.queue, rabbitConfiguration.exchange, rabbitConfiguration.routing);
-                })
-                .then(() => {
-                    rabbitChannel = ch;
-                    return ch;
-                })
-                .catch(err => {
-                    console.error(err);
-                    throw new Error(err.message);
-                });
-        })
-        .catch((error) => {
-            const timeout = 3000;
-            console.log(`Connection to RabbitMQ failed. Retry in ${timeout / 1000} seconds ..`);
-            console.log(util.inspect(error));
-            delay(timeout).then(() => {
-                connect();
-            });
-        });
-}
-
-connect().then(() => {
-    rabbitTestLoop();
-});
-
-function rabbitRead() {
-    return new Promise((resolve, reject) => {
-        return rabbitChannel.get(rabbitConfiguration.queue, {}).then(msgOrFalse => {
-                if (msgOrFalse !== false) {
-                    console.log("Reading from RabbitMQ:: [-] %s", `${msgOrFalse.content.toString()} : Message received at ${new Date()}`);
-                    // @todo: Move this after the test has finished/failed.
-                    rabbitChannel.ack(msgOrFalse);
-                    resolve(JSON.parse(msgOrFalse.content.toString()));
-                }
-                else {
-                    reject('No messages in queue.');
-                }
-        });
-    });
 }
 
 // App
@@ -392,7 +331,7 @@ function beforeShutdown () {
 function onSignal () {
     console.log('server is starting cleanup');
     return Promise.all([
-        rabbitConnection.close(),
+        internalMessageQueue.connection().close(),
         server.close()
     ]);
 }
@@ -446,12 +385,32 @@ const terminusOptions = {
     // logger                           // [optional] logger function to be called with errors
 };
 
-connect().then(() => {
+async function run() {
+    try {
+        await internalMessageQueue.connect(connectionOptions, channelConfigurations);
+    }
+    catch (error) {
+        console.log(`Error while connecting to RabbitMQ: ${error}`);
+        await delay(3000);
+        run();
+    }
+
+    try {
+        const message = await internalMessageQueue.waitChannels(5, 2000);
+        console.log(message);
+    }
+    catch (error) {
+        console.log(`Error! ${error.message}`);
+        // @todo: Exit 1.
+    }
+
+    rabbitTestLoop();
+
+    console.log('Setting the server..');
     server = app.listen(PORT, HOST, function () {
         console.log(`Running on http://${HOST}:${PORT}`);
         terminus(server, terminusOptions);
     });
-})
-    .catch(error => {
-        console.log(`Error while connecting to RabbitMQ: ${error}`);
-    });
+}
+
+run();
