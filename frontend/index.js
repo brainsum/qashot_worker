@@ -56,6 +56,7 @@ function getInternalMQOptions() {
 }
 
 const internalConnectionOptions = getInternalMQOptions();
+const internalQueueId = 'InternalMQ';
 
 const supportedBrowsers = process.env.SUPPORTED_BROWSERS.split(';');
 const supportedModes = {
@@ -342,7 +343,7 @@ const terminusOptions = {
 };
 
 async function run() {
-    await internalMessageQueue.connect(internalConnectionOptions, internalChannelConfigs);
+    await internalMessageQueue.connect(internalConnectionOptions, internalChannelConfigs, internalQueueId);
 
     try {
         const message = await internalMessageQueue.waitChannels(5, 2000);
