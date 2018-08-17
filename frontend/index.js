@@ -37,20 +37,25 @@ const internalMessageQueue = require('./src/message-queue');
 // Constants
 const PORT = 8080;
 const HOST = '0.0.0.0';
-const parsedUrl = url.parse(process.env.INTERNAL_RABBITMQ_URL);
-const auth = parsedUrl.auth.split(':');
-const internalConnectionOptions = {
-    protocol: 'amqp',
-    hostname: parsedUrl.hostname,
-    port: 5672,
-    username: auth[0],
-    password: auth[1],
-    locale: 'en_US',
-    frameMax: 0,
-    channelMax: 0,
-    heartbeat: 30,
-    vhost: '/',
-};
+
+function getInternalMQOptions() {
+    const parsedUrl = url.parse(process.env.INTERNAL_RABBITMQ_URL);
+    const auth = parsedUrl.auth.split(':');
+    return {
+        protocol: 'amqp',
+        hostname: parsedUrl.hostname,
+        port: 5672,
+        username: auth[0],
+        password: auth[1],
+        locale: 'en_US',
+        frameMax: 0,
+        channelMax: 0,
+        heartbeat: 30,
+        vhost: '/',
+    };
+}
+
+const internalConnectionOptions = getInternalMQOptions();
 
 const supportedBrowsers = process.env.SUPPORTED_BROWSERS.split(';');
 const supportedModes = {
