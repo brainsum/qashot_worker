@@ -143,40 +143,69 @@ exports.waitChannels = async function waitChannels(maxRetries = 5, waitFor = 200
 };
 
 /**
+ *
+ * @param connectionOptions
+ * @return {Promise<*>}
+ */
+async function doConnect(connectionOptions) {
+    if ('undefined' !== typeof connection) {
+        return new Promise(resolve => {
+            return resolve(connection);
+        });
+    }
+
+    console.log('MQ:: Trying to connect.');
+    try {
+        const conn = await amqp.connect(connectionOptions);
+        console.log('MQ:: Connection to the queue has been established.');
+        connection = conn;
+    }
+    catch (error) {
+        const timeout = 3000;
+        console.log(`Connection to the MQ failed. Retry in ${timeout / 1000} seconds ..`);
+        console.log(util.inspect(error));
+        await delay(timeout);
+        await doConnect(connectionOptions);
+    }
+
+    return new Promise(resolve => {
+        return resolve(connection);
+    });
+}
+
+/**
+ *
+ * @param connectionOptions
+ * @param channelConfigurations
+ * @return {Promise<*>}
+ */
+const connect = async function(connectionOptions, channelConfigurations) {
+    if ('undefined' !== typeof connection) {
+        return new Promise(resolve => {
+            return resolve(connection);
+        });
+    }
+
+    await doConnect(connectionOptions);
+
+    channelConfigs = channelConfigurations;
+    try {
+        console.log('MQ:: Creating channels.');
+        await createChannels(channelConfigs);
+    }
+    catch (error) {
+        console.log(`MQ:: Error while creating the channels. ${error.message}`);
+    }
+};
+
+/**
  * Connect according to the configuration and create the requested channels.
  *
  * @param connectionOptions
  * @param channelConfigurations
  * @return {Promise<any[]>}
  */
-exports.connect = function(connectionOptions, channelConfigurations) {
-    if ('undefined' !== typeof connection) {
-        return new Promise(resolve => {
-           return resolve(connection);
-        });
-    }
-
-    console.log('MQ:: Trying to connect.');
-    channelConfigs = channelConfigurations;
-    return amqp.connect(connectionOptions)
-        .then((conn) => {
-            console.log('MQ:: Connection to the queue has been established.');
-            connection = conn;
-            return conn;
-        })
-        .then(() => {
-            console.log('MQ:: Creating channels.');
-            return createChannels(channelConfigs)
-        })
-        .catch((error) => {
-            const timeout = 3000;
-            console.log(`Connection to the MQ failed. Retry in ${timeout / 1000} seconds ..`);
-            console.log(util.inspect(error));
-            delay(timeout).then(() => {
-                connect();
-            });
-        });
-};
+exports.connect = connect;
 
 /**
  * Read from a channel.
