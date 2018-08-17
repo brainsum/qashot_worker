@@ -44,7 +44,7 @@ async function createChannel(name, config) {
         });
     }
     catch (error) {
-        console.log(`Error while creating the ${name} channel. ${error}`);
+        console.log(`${queueId}:: Error while creating the ${name} channel. ${error}`);
         throw error;
     }
 }
@@ -227,7 +227,7 @@ exports.read = function(channelName) {
 
         return channels[channelName].get(channelConfigs[channelName].queue, {}).then(msgOrFalse => {
             if (msgOrFalse !== false) {
-                console.log("Reading from MQ:: [-] %s", `${msgOrFalse.content.toString()} : Message received at ${new Date()}`);
+                console.log(`${queueId}:: Reading from MQ; ${msgOrFalse.content.toString()} : Message received at ${new Date()}`);
                 channels[channelName].ack(msgOrFalse);
                 resolve(JSON.parse(msgOrFalse.content.toString()));
             }
@@ -247,12 +247,11 @@ exports.read = function(channelName) {
  */
 exports.write = function (channelName, message) {
     return new Promise(resolve => {
-        console.log(`Trying to publish to channel "${channelName}".`);
+        console.log(`${queueId}:: Trying to publish to channel "${channelName}".`);
         channels[channelName].publish(channelConfigs[channelName].exchange, channelConfigs[channelName].routing, Buffer.from(message), {
             contentType: 'application/json'
         });
-        const msgTxt = message + " : Message sent at " + new Date();
-        console.log(" [+] %s", msgTxt);
+        console.log(`${queueId}:: Writing to MQ; ${message} : Message sent at ${new Date()}`);
         return resolve(message);
     })
         .catch(err => {
