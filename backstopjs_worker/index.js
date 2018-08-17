@@ -30,10 +30,8 @@ const path = require('path');
 const fs = require('fs');
 const backstop = require('backstopjs');
 const util = require('util');
-const url = require('url');
 
-const internalMessageQueue = require('./src/message-queue');
-const exposedMessageQueue = require('./src/message-queue');
+const MessageQueue = require('./src/message-queue');
 
 function loadWorkerConfig() {
     const supportedBrowsers = [
@@ -68,26 +66,6 @@ internalChannelConfigs[workerConfig.browser] = {
     'routing': `${workerConfig.browser}-tests`
 };
 
-function getInternalMQOptions() {
-    const parsedUrl = url.parse(process.env.INTERNAL_RABBITMQ_URL);
-    const auth = parsedUrl.auth.split(':');
-    return {
-        protocol: 'amqp',
-        hostname: parsedUrl.hostname,
-        port: 5672,
-        username: auth[0],
-        password: auth[1],
-        locale: 'en_US',
-        frameMax: 0,
-        channelMax: 0,
-        heartbeat: 30,
-        vhost: '/',
-    };
-}
-
-const internalConnectionOptions = getInternalMQOptions();
-const internalQueueId = 'InternalMQ';
-
 let exposedChannelConfigs = {};
 exposedChannelConfigs[workerConfig.browser] = {
     'name': workerConfig.browser,
@@ -96,25 +74,8 @@ exposedChannelConfigs[workerConfig.browser] = {
     'routing': `${workerConfig.browser}-results`
 };
 
-function getExposedMQOptions() {
-    const parsedUrl = url.parse(process.env.EXPOSED_RABBITMQ_URL);
-    const auth = parsedUrl.auth.split(':');
-    return {
-        protocol: 'amqp',
-        hostname: parsedUrl.hostname,
-        port: 5672,
-        username: auth[0],
-        password: auth[1],
-        locale: 'en_US',
-        frameMax: 0,
-        channelMax: 0,
-        heartbeat: 30,
-        vhost: '/',
-    };
-}
-
-const exposedConnectionOptions = getExposedMQOptions();
-const exposedQueueId = 'ExposedMQ';
+const internalMessageQueue = new MessageQueue('InternalMQ', process.env.INTERNAL_RABBITMQ_URL, internalChannelConfigs);
+const exposedMessageQueue = new MessageQueue('ExposedMQ', process.env.EXPOSED_RABBITMQ_URL, exposedChannelConfigs);
 
 let commandMetrics = {};
 
@@ -239,11 +200,8 @@ function loadResults(reportPath, id) {
  * @return {Promise<any>}
  */
 function sendResults(results) {
-    return new Promise(((resolve, reject) => {
-        console.log(util.inspect(results));
-
-        resolve('TODO:: Implement sendResults function..');
-    }));
+    console.log(util.inspect(results));
+    return exposedMessageQueue.write(workerConfig.browser, JSON.stringify(results));
 }
 
 /**
@@ -367,7 +325,7 @@ function beforeShutdown () {
 function onSignal () {
     console.log('server is starting cleanup');
     return Promise.all([
-        internalMessageQueue.connection().close(),
+        internalMessageQueue.getConnection().close(),
         server.close()
     ]);
 }
@@ -422,7 +380,7 @@ const terminusOptions = {
 };
 
 async function run() {
-    await internalMessageQueue.connect(internalConnectionOptions, internalChannelConfigs, internalQueueId);
+    await internalMessageQueue.connect();
 
     try {
         const message = await internalMessageQueue.waitChannels(5, 2000);
@@ -433,7 +391,7 @@ async function run() {
         // @todo: Exit 1.
     }
 
-    await exposedMessageQueue.connect(exposedConnectionOptions, exposedChannelConfigs, exposedQueueId);
+    await exposedMessageQueue.connect();
 
     try {
         const message = await exposedMessageQueue.waitChannels(5, 2000);
