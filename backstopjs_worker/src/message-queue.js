@@ -2,6 +2,8 @@
 
 const amqp = require('amqplib');
 
+let queueId;
+
 /**
  *
  * @type {ChannelModel}
@@ -57,7 +59,7 @@ async function createChannels(configs) {
     let errors = [];
 
     Object.keys(configs).forEach(async (name) => {
-        console.log(`MQ:: Trying to create the ${name} channel.`);
+        console.log(`${queueId}:: Trying to create the ${name} channel.`);
         try {
             await createChannel(name, configs[name]);
         }
@@ -68,13 +70,13 @@ async function createChannels(configs) {
 
     return new Promise((resolve, reject) => {
         if (errors.length === 0) {
-            console.log('MQ:: Channels created.');
+            console.log(`${queueId}:: Channels created.`);
             return resolve('Channels created.');
         }
 
-        console.log('MQ:: Errors while creating the channels.');
+        console.log(`${queueId}:: Errors while creating the channels.`);
         errors.forEach(function(error) {
-            console.log(`MQ:: ---- ${error}`);
+            console.log(`${queueId}:: ---- ${error}`);
         });
         return reject(errors);
     });
@@ -106,17 +108,17 @@ exports.channels = function() {
  */
 async function doWaitChannels(maxRetries = 5, waitFor = 2000, currentRetries) {
     if (currentRetries > maxRetries) {
-        throw new Error(`MQ:: Max retries (${maxRetries}) reached.`);
+        throw new Error(`${queueId}:: Max retries (${maxRetries}) reached.`);
     }
 
-    console.log(`MQ:: Waiting for channels (Retries ${currentRetries}/${maxRetries})..`);
+    console.log(`${queueId}:: Waiting for channels (Retries ${currentRetries}/${maxRetries})..`);
 
     await delay(waitFor);
 
     let shouldWait = false;
     Object.keys(channelConfigs).forEach((name) => {
         if ('undefined' === typeof channels[name]) {
-            console.log(`MQ:: The ${name} channel is not yet open, waiting.`);
+            console.log(`${queueId}:: The ${name} channel is not yet open, waiting.`);
             shouldWait = true;
         }
     });
@@ -126,7 +128,7 @@ async function doWaitChannels(maxRetries = 5, waitFor = 2000, currentRetries) {
     }
 
     return new Promise(resolve => {
-        return resolve('MQ:: The channels are open.');
+        return resolve(`${queueId}:: The channels are open.`);
     });
 }
 
@@ -155,10 +157,10 @@ async function doConnect(connectionOptions) {
         });
     }
 
-    console.log('MQ:: Trying to connect.');
+    console.log(`${queueId}:: Trying to connect.`);
     try {
         const conn = await amqp.connect(connectionOptions);
-        console.log('MQ:: Connection to the queue has been established.');
+        console.log(`${queueId}:: Connection to the queue has been established.`);
         connection = conn;
     }
     catch (error) {
@@ -175,11 +177,14 @@ async function doConnect(connectionOptions) {
 
 /**
  *
- * @param connectionOptions
- * @param channelConfigurations
+ * @param {Object} connectionOptions
+ * @param {Object} channelConfigurations
+ * @param {String} id
  * @return {Promise<*>}
  */
-const connect = async function(connectionOptions, channelConfigurations) {
+const connect = async function(connectionOptions, channelConfigurations, id) {
+    queueId = id;
+
     if ('undefined' !== typeof connection) {
         return new Promise(resolve => {
             return resolve(connection);
@@ -190,11 +195,11 @@ const connect = async function(connectionOptions, channelConfigurations) {
 
     channelConfigs = channelConfigurations;
     try {
-        console.log('MQ:: Creating channels.');
+        console.log(`${queueId}:: Creating channels.`);
         await createChannels(channelConfigs);
     }
     catch (error) {
-        console.log(`MQ:: Error while creating the channels. ${error.message}`);
+        console.log(`${queueId}:: Error while creating the channels. ${error.message}`);
     }
 };
 
@@ -215,7 +220,7 @@ exports.connect = connect;
  */
 exports.read = function(channelName) {
     return new Promise((resolve, reject) => {
-        console.log(`MQ:: Trying to read from the ${channelName} queue.`);
+        console.log(`${queueId}:: Trying to read from the ${channelName} queue.`);
         if ('undefined' === typeof channels[channelName]) {
             return reject(`The ${channelName} queue is not yet open.`);
         }

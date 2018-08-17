@@ -59,6 +59,7 @@ function ensureDirectory(path) {
 const PORT = 8080;
 const HOST = '0.0.0.0';
 const workerConfig = loadWorkerConfig();
+
 let internalChannelConfigs = {};
 internalChannelConfigs[workerConfig.browser] = {
     'name': workerConfig.browser,
@@ -85,13 +86,14 @@ function getInternalMQOptions() {
 }
 
 const internalConnectionOptions = getInternalMQOptions();
+const internalQueueId = 'InternalMQ';
 
 let exposedChannelConfigs = {};
 exposedChannelConfigs[workerConfig.browser] = {
     'name': workerConfig.browser,
     'queue': `backstop-${workerConfig.browser}`,
     'exchange': 'backstop-worker',
-    'routing': `${workerConfig.browser}-tests`
+    'routing': `${workerConfig.browser}-results`
 };
 
 function getExposedMQOptions() {
@@ -112,6 +114,7 @@ function getExposedMQOptions() {
 }
 
 const exposedConnectionOptions = getExposedMQOptions();
+const exposedQueueId = 'ExposedMQ';
 
 let commandMetrics = {};
 
@@ -419,10 +422,21 @@ const terminusOptions = {
 };
 
 async function run() {
-    await internalMessageQueue.connect(internalConnectionOptions, internalChannelConfigs);
+    await internalMessageQueue.connect(internalConnectionOptions, internalChannelConfigs, internalQueueId);
 
     try {
         const message = await internalMessageQueue.waitChannels(5, 2000);
+        console.log(message);
+    }
+    catch (error) {
+        console.log(`Error! ${error.message}`);
+        // @todo: Exit 1.
+    }
+
+    await exposedMessageQueue.connect(exposedConnectionOptions, exposedChannelConfigs, exposedQueueId);
+
+    try {
+        const message = await exposedMessageQueue.waitChannels(5, 2000);
         console.log(message);
     }
     catch (error) {
