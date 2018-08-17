@@ -165,11 +165,7 @@ function verifyTestConfig(config) {
     return errors;
 }
 
-// @todo: Implement bulk-add?
-
-// @todo: Move validations into a custom middleware.
-// @see https://expressjs.com/en/guide/using-middleware.html
-app.post('/api/v1/test/add', asyncHandlerMiddleware(async function (req, res) {
+function testValidationMiddleware(req, res, next) {
     if (undefined === req.body) { // || req.body.length === 0
         return res.status(400).json({message: 'Empty request.'});
     }
@@ -208,6 +204,27 @@ app.post('/api/v1/test/add', asyncHandlerMiddleware(async function (req, res) {
     if (supportedModes[mode].length > 0 && !supportedModes[mode].includes(stage)) {
         console.error(`Request for unsupported "${stage}" stage.`);
     }
+
+    next();
+}
+
+/**
+ * @todo: Use a JSON Validator lib.
+ */
+app.use('/api/v1/test/add', testValidationMiddleware);
+
+// @todo: Implement bulk-add?
+// @see https://expressjs.com/en/guide/using-middleware.html
+app.post('/api/v1/test/add', asyncHandlerMiddleware(async function (req, res) {
+    const testConfig = req.body.test_config;
+    // Note: A standard backstop config includes an "engine" field. We don't care about that,
+    // it's up to the  worker to update it according to its configuration.
+    // @todo: Expose endpoint so others can query the "supported" lists.
+    const browser = req.body.browser;
+    const mode = req.body.mode;
+    // @problem: Before/After needs to be stateful, currently this is not really the case.
+    // @todo: Figure out how to make this work. Maybe add a database?
+    const stage = req.body.stage;
 
     try {
         await rabbitWriteTest(browser, testConfig);
