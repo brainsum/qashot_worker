@@ -5,6 +5,7 @@ function preFlightCheck() {
         'WORKER_BROWSER',
         'WORKER_ENGINE',
         'INTERNAL_RABBITMQ_URL',
+        'EXPOSED_RABBITMQ_URL',
         'JWT_SECRET_KEY'
     ];
 
@@ -32,6 +33,7 @@ const util = require('util');
 const url = require('url');
 
 const internalMessageQueue = require('./src/message-queue');
+const exposedMessageQueue = require('./src/message-queue');
 
 function loadWorkerConfig() {
     const supportedBrowsers = [
@@ -83,6 +85,33 @@ function getInternalMQOptions() {
 }
 
 const internalConnectionOptions = getInternalMQOptions();
+
+let exposedChannelConfigs = {};
+exposedChannelConfigs[workerConfig.browser] = {
+    'name': workerConfig.browser,
+    'queue': `backstop-${workerConfig.browser}`,
+    'exchange': 'backstop-worker',
+    'routing': `${workerConfig.browser}-tests`
+};
+
+function getExposedMQOptions() {
+    const parsedUrl = url.parse(process.env.EXPOSED_RABBITMQ_URL);
+    const auth = parsedUrl.auth.split(':');
+    return {
+        protocol: 'amqp',
+        hostname: parsedUrl.hostname,
+        port: 5672,
+        username: auth[0],
+        password: auth[1],
+        locale: 'en_US',
+        frameMax: 0,
+        channelMax: 0,
+        heartbeat: 30,
+        vhost: '/',
+    };
+}
+
+const exposedConnectionOptions = getExposedMQOptions();
 
 let commandMetrics = {};
 
@@ -390,14 +419,7 @@ const terminusOptions = {
 };
 
 async function run() {
-    try {
-        await internalMessageQueue.connect(internalConnectionOptions, internalChannelConfigs);
-    }
-    catch (error) {
-        console.log(`Error while connecting to RabbitMQ: ${error}`);
-        await delay(3000);
-        run();
-    }
+    await internalMessageQueue.connect(internalConnectionOptions, internalChannelConfigs);
 
     try {
         const message = await internalMessageQueue.waitChannels(5, 2000);

@@ -342,14 +342,7 @@ const terminusOptions = {
 };
 
 async function run() {
-    try {
-        await internalMessageQueue.connect(internalConnectionOptions, internalChannelConfigs);
-    }
-    catch (error) {
-        console.log(`Error while connecting to RabbitMQ: ${error}`);
-        await delay(3000);
-        run();
-    }
+    await internalMessageQueue.connect(internalConnectionOptions, internalChannelConfigs);
 
     try {
         const message = await internalMessageQueue.waitChannels(5, 2000);
