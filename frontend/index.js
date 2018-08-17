@@ -31,13 +31,26 @@ const jwtHandlerMiddleware = require('express-jwt');
 const fs = require('fs');
 const path = require('path');
 const url = require('url');
-const amqp = require('amqplib');
-const util = require('util');
 
+const internalMessageQueue = require('./src/message-queue');
 
 // Constants
 const PORT = 8080;
 const HOST = '0.0.0.0';
+const parsedUrl = url.parse(process.env.INTERNAL_RABBITMQ_URL);
+const auth = parsedUrl.auth.split(':');
+const internalConnectionOptions = {
+    protocol: 'amqp',
+    hostname: parsedUrl.hostname,
+    port: 5672,
+    username: auth[0],
+    password: auth[1],
+    locale: 'en_US',
+    frameMax: 0,
+    channelMax: 0,
+    heartbeat: 30,
+    vhost: '/',
+};
 
 const supportedBrowsers = process.env.SUPPORTED_BROWSERS.split(';');
 const supportedModes = {
@@ -52,6 +65,7 @@ function getRabbitConfig() {
     let config = {};
     supportedBrowsers.forEach((browser) => {
         config[browser] = {
+            'name': browser,
             'queue': `backstop-${browser}`,
             'exchange': 'backstop-worker',
             'routing': `${browser}-tests`
@@ -61,128 +75,17 @@ function getRabbitConfig() {
     return config;
 }
 
-const rabbitConfiguration = getRabbitConfig();
-
-/**
- * @type {undefined|ChannelModel}
- */
-let rabbitConnection = undefined;
-let rabbitChannels = {};
-
-function delay(t, v) {
-    return new Promise(function(resolve) {
-        setTimeout(resolve.bind(null, v), t)
-    });
-}
-
-/**
- * Publish the message to rabbit.
- *
- * @param {string} browser
- * @param {Array|ArrayBuffer|SharedArrayBuffer|Buffer|string} message
- * @return {Promise<any | never>}
- */
-function rabbitWrite(browser, message) {
-    return new Promise(resolve => {
-        console.log(`Trying to publish to channel "${browser}".`);
-        rabbitChannels[browser].publish(rabbitConfiguration[browser]['exchange'], rabbitConfiguration[browser]['routing'], Buffer.from(message), {
-            contentType: 'application/json'
-        });
-        const msgTxt = message + " : Message sent at " + new Date();
-        console.log(" [+] %s", msgTxt);
-        return resolve(message);
-    })
-        .catch(err => {
-            console.error(err);
-            throw new Error(err.message);
-        });
-}
+const internalChannelConfigs = getRabbitConfig();
 
 /**
  *
  * @param {string} browser
  * @param {Object} test
- * @return {Promise<T | never>}
+ * @return {Promise<any>}
  */
 function rabbitWriteTest(browser, test) {
     const message = JSON.stringify(test);
-    return rabbitWrite(browser, message);
-}
-
-/**
- * Create a single channel according to the config.
- *
- * @param {string} browser
- * @param {Object} config
- * @return {PromiseLike<T | never>}
- */
-function createChannel(browser, config) {
-    return rabbitConnection.createChannel().then(ch => {
-        // @todo: Add multiple channels, one for each browser.
-        return ch.assertExchange(config['exchange'], 'direct', {})
-            .then(() => {
-                return ch.assertQueue(config['queue'], {});
-            })
-            .then(() => {
-                return ch.prefetch(1);
-            })
-            .then(q => {
-                return ch.bindQueue(q.queue, config['exchange'], config['routing']);
-            })
-            .then(() => {
-                rabbitChannels[browser] = ch;
-                return ch;
-            })
-            .catch(err => {
-                console.error(err);
-                throw new Error(err.message);
-            });
-    })
-}
-
-function createChannels() {
-    let promises = [];
-
-    Object.keys(rabbitConfiguration).forEach(browser => {
-        promises.push(createChannel(browser, rabbitConfiguration[browser]));
-    });
-
-    return Promise.all(promises);
-}
-
-function connect() {
-    const parsedUrl = url.parse(process.env.INTERNAL_RABBITMQ_URL);
-    const auth = parsedUrl.auth.split(':');
-    const connectionOptions = {
-        protocol: 'amqp',
-        hostname: parsedUrl.hostname,
-        port: 5672,
-        username: auth[0],
-        password: auth[1],
-        locale: 'en_US',
-        frameMax: 0,
-        channelMax: 64,
-        heartbeat: 30,
-        vhost: '/',
-    };
-
-    return amqp.connect(connectionOptions)
-        .then((conn) => {
-            console.log('Connection to RabbitMQ has been established.');
-            rabbitConnection = conn;
-            return conn;
-        })
-        .then(() => {
-            return createChannels();
-        })
-        .catch((error) => {
-            const timeout = 3000;
-            console.log(`Connection to RabbitMQ failed. Retry in ${timeout / 1000} seconds ..`);
-            console.log(util.inspect(error));
-            delay(timeout).then(() => {
-                connect();
-            });
-        });
+    return internalMessageQueue.write(browser, message);
 }
 
 // App
@@ -217,19 +120,6 @@ app.use(function (req, res, next) {
 app.get('/', function (req, res) {
   return res.status(200).json({ message: 'General Kenobi.'});
 });
-
-// function rabbitWriteMultiple(messages) {
-//     // @todo: Implement.
-//     Array.prototype.forEach(function (message) {
-//         rabbitWriteTest(message)
-//             .then(function (resolve) {
-//                 return resolve(`Message ${message} added to the queue.`);
-//             })
-//             .catch(function (reject) {
-//                 return reject(`Couldn't add ${message} to the queue.`);
-//             });
-//     });
-// }
 
 /**
  * Check a test config for issues.
@@ -369,7 +259,7 @@ function beforeShutdown () {
 function onSignal () {
     console.log('server is starting cleanup');
     return Promise.all([
-        rabbitConnection.close(),
+        internalMessageQueue.connection().close(),
         server.close()
     ]);
 }
@@ -423,12 +313,30 @@ const terminusOptions = {
     // logger                           // [optional] logger function to be called with errors
 };
 
-connect().then(() => {
+async function run() {
+    try {
+        await internalMessageQueue.connect(internalConnectionOptions, internalChannelConfigs);
+    }
+    catch (error) {
+        console.log(`Error while connecting to RabbitMQ: ${error}`);
+        await delay(3000);
+        run();
+    }
+
+    try {
+        const message = await internalMessageQueue.waitChannels(5, 2000);
+        console.log(message);
+    }
+    catch (error) {
+        console.log(`Error! ${error.message}`);
+        // @todo: Exit 1.
+    }
+
+    console.log('Setting the server..');
     server = app.listen(PORT, HOST, function () {
         console.log(`Running on http://${HOST}:${PORT}`);
         terminus(server, terminusOptions);
     });
-})
-    .catch(error => {
-        console.log(`Error while connecting to RabbitMQ: ${error}`);
-    });
+}
+
+run();
