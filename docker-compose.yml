@@ -7,8 +7,8 @@ services:
     - "NODE_ENV=production"
     - "WORKER_BROWSER=chrome"
     - "WORKER_ENGINE=puppeteer"
-    - "INTERNAL_RABBITMQ_URL=amqp://user:bitnami@internal_rabbitmq"
-    - "EXPOSED_RABBITMQ_URL=amqp://user:bitnami@exposed_rabbitmq"
+    - "INTERNAL_RABBITMQ_URL=amqp://user:bitnami@internal_rabbitmq:${INTERNAL_RABBITMQ_PORT}"
+    - "EXPOSED_RABBITMQ_URL=amqp://user:bitnami@exposed_rabbitmq:${EXPOSED_RABBITMQ_PORT}"
     - "JWT_SECRET_KEY=${JWT_SECRET_KEY}"
     depends_on:
     - frontend
@@ -37,8 +37,8 @@ services:
     - "NODE_ENV=production"
     - "WORKER_BROWSER=firefox"
     - "WORKER_ENGINE=slimerjs"
-    - "INTERNAL_RABBITMQ_URL=amqp://user:bitnami@internal_rabbitmq"
-    - "EXPOSED_RABBITMQ_URL=amqp://user:bitnami@exposed_rabbitmq"
+    - "INTERNAL_RABBITMQ_URL=amqp://user:bitnami@internal_rabbitmq:${INTERNAL_RABBITMQ_PORT}"
+    - "EXPOSED_RABBITMQ_URL=amqp://user:bitnami@exposed_rabbitmq:${EXPOSED_RABBITMQ_PORT}"
     - "JWT_SECRET_KEY=${JWT_SECRET_KEY}"
     depends_on:
     - frontend
@@ -67,8 +67,8 @@ services:
     - "NODE_ENV=production"
     - "WORKER_BROWSER=phantomjs"
     - "WORKER_ENGINE=casper"
-    - "INTERNAL_RABBITMQ_URL=amqp://user:bitnami@internal_rabbitmq"
-    - "EXPOSED_RABBITMQ_URL=amqp://user:bitnami@exposed_rabbitmq"
+    - "INTERNAL_RABBITMQ_URL=amqp://user:bitnami@internal_rabbitmq:${INTERNAL_RABBITMQ_PORT}"
+    - "EXPOSED_RABBITMQ_URL=amqp://user:bitnami@exposed_rabbitmq:${EXPOSED_RABBITMQ_PORT}"
     - "JWT_SECRET_KEY=${JWT_SECRET_KEY}"
     depends_on:
     - frontend
@@ -114,7 +114,7 @@ services:
     networks:
     - internal
     labels:
-    - "traefik.port=5672"
+    - "traefik.port=${INTERNAL_RABBITMQ_PORT}"
     - "traefik.enable=false"
     - "traefik.docker.network=internal"
     # - "traefik.backend=internal_rabbitmq"
@@ -125,7 +125,7 @@ services:
     image: brainsum/qashot_worker_frontend:0.1.3
     environment:
     - "NODE_ENV=production"
-    - "INTERNAL_RABBITMQ_URL=amqp://user:bitnami@internal_rabbitmq"
+    - "INTERNAL_RABBITMQ_URL=amqp://user:bitnami@internal_rabbitmq:${INTERNAL_RABBITMQ_PORT}"
     - "SUPPORTED_BROWSERS=chrome;firefox;phantomjs"
     - "JWT_SECRET_KEY=${JWT_SECRET_KEY}"
     depends_on:
@@ -191,7 +191,7 @@ services:
     - exposed
     - internal
     labels:
-    - "traefik.port=5682"
+    - "traefik.port=${EXPOSED_RABBITMQ_PORT}"
     - "traefik.enable=true"
     - "traefik.backend=exposed_rabbitmq"
     - 'traefik.frontend.rule=Host:exposed-rabbitmq.${PROJECT_BASE_URL}'
