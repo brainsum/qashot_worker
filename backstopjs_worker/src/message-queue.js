@@ -1,6 +1,5 @@
 'use strict';
 
-const util = require('util');
 const amqp = require('amqplib');
 
 /**
@@ -74,7 +73,9 @@ async function createChannels(configs) {
         }
 
         console.log('MQ:: Errors while creating the channels.');
-        console.log(util.inspect(errors));
+        errors.forEach(function(error) {
+            console.log(`MQ:: ---- ${error}`);
+        });
         return reject(errors);
     });
 }
@@ -162,8 +163,7 @@ async function doConnect(connectionOptions) {
     }
     catch (error) {
         const timeout = 3000;
-        console.log(`Connection to the MQ failed. Retry in ${timeout / 1000} seconds ..`);
-        console.log(util.inspect(error));
+        console.log(`Connection to the MQ failed. Retry in ${timeout / 1000} seconds.. (${error.message})`);
         await delay(timeout);
         await doConnect(connectionOptions);
     }
