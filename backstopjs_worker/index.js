@@ -57,8 +57,8 @@ function ensureDirectory(path) {
 const PORT = 8080;
 const HOST = '0.0.0.0';
 const workerConfig = loadWorkerConfig();
-let channelConfigurations = {};
-channelConfigurations[workerConfig.browser] = {
+let internalChannelConfigs = {};
+internalChannelConfigs[workerConfig.browser] = {
     'name': workerConfig.browser,
     'queue': `backstop-${workerConfig.browser}`,
     'exchange': 'backstop-worker',
@@ -67,7 +67,7 @@ channelConfigurations[workerConfig.browser] = {
 
 const parsedUrl = url.parse(process.env.INTERNAL_RABBITMQ_URL);
 const auth = parsedUrl.auth.split(':');
-const connectionOptions = {
+const internalConnectionOptions = {
     protocol: 'amqp',
     hostname: parsedUrl.hostname,
     port: 5672,
@@ -387,7 +387,7 @@ const terminusOptions = {
 
 async function run() {
     try {
-        await internalMessageQueue.connect(connectionOptions, channelConfigurations);
+        await internalMessageQueue.connect(internalConnectionOptions, internalChannelConfigs);
     }
     catch (error) {
         console.log(`Error while connecting to RabbitMQ: ${error}`);
