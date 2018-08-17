@@ -236,7 +236,8 @@ exports.read = function(channelName) {
 /**
  * Write a message to a channel.
  *
- * @param channelName
+ * @param {String} channelName
+ * @param {String} message
  * @return {Promise<any>}
  */
 exports.write = function (channelName, message) {
