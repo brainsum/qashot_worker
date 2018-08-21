@@ -1,24 +1,25 @@
 'use strict';
 
 function preFlightCheck() {
-    const requiredEnvVars = [
-        'WORKER_BROWSER',
-        'WORKER_ENGINE',
-        'INTERNAL_RABBITMQ_URL',
-        'JWT_SECRET_KEY'
-    ];
+  const requiredEnvVars = [
+    'WORKER_BROWSER',
+    'WORKER_ENGINE',
+    'INTERNAL_RABBITMQ_URL',
+    'EXPOSED_RABBITMQ_URL',
+    'JWT_SECRET_KEY'
+  ];
 
-    let success = true;
-    requiredEnvVars.forEach(function (variableName) {
-        if (!process.env.hasOwnProperty(variableName)) {
-            console.error(`The required "${variableName}" environment variable is not set.`);
-            success = false;
-        }
-    });
-
-    if (false === success) {
-        throw new Error('Pre-flight check failed.');
+  let success = true;
+  requiredEnvVars.forEach(function (variableName) {
+    if (!process.env.hasOwnProperty(variableName)) {
+      console.error(`The required "${variableName}" environment variable is not set.`);
+      success = false;
     }
+  });
+
+  if (false === success) {
+    throw new Error('Pre-flight check failed.');
+  }
 }
 
 preFlightCheck();
@@ -29,67 +30,270 @@ const path = require('path');
 const fs = require('fs');
 const backstop = require('backstopjs');
 const util = require('util');
-const url = require('url');
-const amqp = require('amqplib');
+
+const MessageQueue = require('./src/message-queue');
+
 
 function loadWorkerConfig() {
-    const supportedBrowsers = [
-        'chrome',
-        'firefox',
-        'phantomjs'
-    ];
+  const supportedBrowsers = [
+    'chrome',
+    'firefox',
+    'phantomjs'
+  ];
 
-    if (supportedBrowsers.includes(process.env.WORKER_BROWSER)) {
-        const filename = `worker-config.${process.env.WORKER_BROWSER}.json`;
-        return JSON.parse(fs.readFileSync(path.join(__dirname, filename)));
-    }
+  if (supportedBrowsers.includes(process.env.WORKER_BROWSER)) {
+    const filename = `worker-config.${process.env.WORKER_BROWSER}.json`;
+    return JSON.parse(fs.readFileSync(path.join(__dirname, filename)));
+  }
 
-    throw new Error('Could not load configuration for the worker.');
+  throw new Error('Could not load configuration for the worker.');
 }
 
 function ensureDirectory(path) {
-    if (!fs.existsSync(path)) {
-        fs.mkdirSync(path, 0o775);
-    }
+  if (!fs.existsSync(path)) {
+    fs.mkdirSync(path, 0o775);
+  }
 }
 
 const PORT = 8080;
 const HOST = '0.0.0.0';
 const workerConfig = loadWorkerConfig();
-const rabbitConfiguration = {
-    'queue': `backstop-${workerConfig['browser']}`,
-    'exchange': 'backstop-worker',
-    'routing': `${workerConfig['browser']}-tests`
+
+let internalChannelConfigs = {};
+internalChannelConfigs[workerConfig.browser] = {
+  'name': workerConfig.browser,
+  'queue': `backstop-${workerConfig.browser}`,
+  'exchange': 'backstop-worker',
+  'routing': `${workerConfig.browser}-tests`
 };
 
-let rabbitConnection = undefined;
-let rabbitChannel = undefined;
+let exposedChannelConfigs = {};
+exposedChannelConfigs[workerConfig.browser] = {
+  'name': workerConfig.browser,
+  'queue': `backstop-${workerConfig.browser}`,
+  'exchange': 'backstop-worker',
+  'routing': `${workerConfig.browser}-results`
+};
+
+const internalMessageQueue = new MessageQueue('InternalMQ', process.env.INTERNAL_RABBITMQ_URL, internalChannelConfigs);
+const exposedMessageQueue = new MessageQueue('ExposedMQ', process.env.EXPOSED_RABBITMQ_URL, exposedChannelConfigs);
+
+let commandMetrics = {};
 
 ensureDirectory(path.join(__dirname, 'runtime'));
-ensureDirectory(path.join(__dirname, 'runtime', workerConfig['browser']));
+ensureDirectory(path.join(__dirname, 'runtime', workerConfig.browser));
+
+
+/**
+ *
+ * @param {Object} backstopConfig
+ * @param {Object} backstopResults
+ * @return {Promise<any>}
+ */
+function parseResults(backstopConfig, backstopResults) {
+    return new Promise(resolve => {
+        let passedCount = 0;
+        let failedCount = 0;
+        let parsedResults = [];
+
+        backstopResults.tests.forEach(function(test) {
+            const isSuccess = (test.status === 'pass');
+            if (isSuccess) {
+                ++passedCount;
+            }
+            else {
+                ++failedCount;
+            }
+
+            let currentResult = {
+                'scenarioLabel': test.pair.label,
+                'viewportLabel': test.pair.viewportLabel,
+                'success': isSuccess,
+                'reference': test.pair.reference,
+                'test': test.pair.test,
+                'diffImage': test.pair.diffImage,
+                'misMatchPercentage': test.pair.diff.misMatchPercentage
+            };
+
+            parsedResults.push(currentResult);
+        });
+
+        const viewportCount = backstopConfig.viewports.length;
+        const scenarioCount = backstopConfig.scenarios.length;
+        const expectedTestCount = viewportCount + scenarioCount;
+        const testCount = passedCount + failedCount;
+        const passRate = (testCount === 0) ? 0 : passedCount / testCount;
+
+        Object.keys(commandMetrics).forEach(function (command) {
+            commandMetrics[command].duration = (commandMetrics[command].end - commandMetrics[command].start) / 1000;
+            commandMetrics[command].metric_type = 'seconds';
+        });
+
+        let finalResults = {
+            'metadata': {
+                'id': backstopConfig.id,
+                'mode': 'a_b',
+                'stage': null,
+                'browser': workerConfig.browser,
+                'engine': workerConfig.engine,
+                'viewportCount': viewportCount,
+                'scenarioCount': scenarioCount,
+                'duration': commandMetrics,
+                'testCount': testCount,
+                'passedCount': passedCount,
+                'failedCount': failedCount,
+                'passRate': passRate,
+                'success': (failedCount === 0 && testCount > 0 && testCount === expectedTestCount)
+            },
+            'results': parsedResults
+        };
+        return resolve(finalResults);
+    });
+}
+
+/**
+ *
+ * @param {String} reportPath
+ * @param {String|Number} id
+ * @return {Promise<any>}
+ */
+function loadResults(reportPath, id) {
+    return new Promise(((resolve, reject) => {
+        const resultFile = path.join(reportPath, 'config.js');
+        if (!fs.existsSync(resultFile)) {
+            return reject(`The results file for the ${id} test does not exits.`);
+        }
+        // @todo: This should work, but making it more robust would be nice.
+        const results = JSON.parse(fs.readFileSync(resultFile, 'utf8').replace('report(', '').replace(');', ''));
+        return resolve(results);
+    }));
+}
+
+/**
+ *
+ * @param {Object} results
+ * @return {Promise<any>}
+ */
+function sendResults(results) {
+    console.log(util.inspect(results));
+    return exposedMessageQueue.write(workerConfig.browser, JSON.stringify(results));
+}
+
+/**
+ *
+ * @param {Object} backstopConfig
+ * @return {Promise<any | never>}
+ */
+function pushResults(backstopConfig) {
+    return loadResults(backstopConfig.paths.html_report, backstopConfig.id).then(loadedResults => {
+        return parseResults(backstopConfig, loadedResults);
+    })
+    .then(parsedResults => {
+        return sendResults(parsedResults);
+    })
+    .catch((error) => {
+        return error;
+    });
+}
+
+const childProcess = require('child_process');
 
 function executeReference(config) {
+    commandMetrics.reference = {
+        'start': new Date()
+    };
     return backstop('reference', { config: config })
         .then(function () {
-            console.error(`Reference success for test ${config['id']}.`);
+            console.log(`Reference success for test ${config.id}.`);
+            commandMetrics.reference.end = new Date();
         })
         .catch(function () {
-            console.error(`Reference fail for test ${config['id']}.`);
+            console.error(`Reference fail for test ${config.id}.`);
+            commandMetrics.reference.end = new Date();
         });
 }
 
 function executeTest(config) {
+    commandMetrics.test = {
+        'start': new Date()
+    };
     return backstop('test', { config: config })
         .then(function () {
-            console.log(`Test success for test ${config['id']}.`);
+            console.log(`Test success for test ${config.id}.`);
+            commandMetrics.test.end = new Date();
         })
         .catch(function () {
-            console.log(`Test fail for test ${config['id']}.`);
+            console.error(`Test fail for test ${config.id}.`);
+            commandMetrics.test.end = new Date();
         });
 }
 
-const childProcess = require('child_process');
-function startABTest(config) {
+/**
+ *
+ * @param configPath
+ * @returns {Promise<*>}
+ */
+async function executeReferenceChildProcess(configPath) {
+    const execSyncConfig = {
+        stdio: 'inherit',
+        // 15 minutes
+        timeout: 15*60*1000
+    };
+
+    try {
+        commandMetrics.reference = {
+            'start': new Date()
+        };
+        childProcess.execSync(`xvfb-run -a backstop reference --configPath=${configPath}`, execSyncConfig);
+        commandMetrics.reference.end = new Date();
+    }
+    catch (error) {
+        commandMetrics.reference.end = new Date();
+        console.log(`Error (${error.code}) while running the reference command: ${error.message}`);
+        return Promise.reject('The "reference" command ended with an error.');
+    }
+
+    return Promise.resolve('The "reference" command ended successfully.');
+}
+
+/**
+ *
+ * @param configPath
+ * @returns {Promise<*>}
+ */
+async function executeTestChildProcess(configPath) {
+    const execSyncConfig = {
+        stdio: 'inherit',
+        // 15 minutes
+        timeout: 15*60*1000
+    };
+
+    try {
+        commandMetrics.test = {
+            'start': new Date()
+        };
+        childProcess.execSync(`xvfb-run -a backstop test --configPath=${configPath}`, execSyncConfig);
+        commandMetrics.test.end = new Date();
+    }
+    catch (error) {
+        commandMetrics.test.end = new Date();
+        console.log(`Error while running the test command: ${error.message}`);
+        return Promise.reject('The "test" command ended with an error.');
+    }
+
+    return Promise.resolve('The "test" command ended successfully.');
+}
+
+/**
+ *
+ * @param config
+ * @returns {*}
+ */
+function runABTest(config) {
+    commandMetrics.full = {
+        'start': new Date()
+    };
+
     console.log(util.inspect(config));
 
     const configPath = path.join(__dirname, 'runtime', workerConfig['browser'], config['id'], 'backstop.json');
@@ -101,29 +305,14 @@ function startABTest(config) {
         return Promise.reject(error);
     }
 
-    const execConfig = {
-        stdio: 'inherit',
-        // 15 minutes
-        timeout: 15*60*1000
-    };
-
-    try {
-        childProcess.execSync(`xvfb-run -a backstop reference --configPath=${configPath}`, execConfig);
-    }
-    catch (error) {
-        console.log(`Error (${error.code}) while running the reference command: ${error.message}`);
-        return Promise.resolve('Reference ended with error.');
-    }
-
-    try {
-        childProcess.execSync(`xvfb-run -a backstop test --configPath=${configPath}`, execConfig);
-    }
-    catch (error) {
-        console.log(`Error while running the test command: ${error.message}`);
-        return Promise.resolve('Test ended with error.');
-    }
-
-    return Promise.resolve('Tests ended.');
+    return executeReferenceChildProcess(configPath)
+        .then(function () {
+            return executeTestChildProcess(configPath);
+        })
+        .catch(error => {
+            console.log(`Test error: ${error}`);
+            return error;
+        })
 }
 
 function delay(t, v) {
@@ -146,134 +335,58 @@ function delay(t, v) {
 function rabbitTestLoop() {
     console.time('rabbitTestLoop');
 
-    rabbitRead()
-        .then(data => {
-            // @todo: Maybe use this for something.
-            // const originalBackstopConfig = data;
-            let backstopConfig = data;
-            console.log('Data received. Config ID is: ' + backstopConfig['id']);
-            const templates = path.join(__dirname, 'templates');
-            const currentRuntime = path.join(__dirname, 'runtime', workerConfig['browser'], backstopConfig['id']);
-            ensureDirectory(currentRuntime);
+    internalMessageQueue.read(workerConfig.browser)
+    .then(data => {
+        // @todo: Maybe use this for something.
+        // const originalBackstopConfig = data;
+        let backstopConfig = data;
+        console.log('Data received. Config ID is: ' + backstopConfig.id);
+        const templates = path.join(__dirname, 'templates');
+        const currentRuntime = path.join(__dirname, 'runtime', workerConfig.browser, backstopConfig.id);
+        ensureDirectory(currentRuntime);
 
-            backstopConfig['paths'] = {
-                "engine_scripts": (workerConfig['browser'] === 'phantomjs') ? path.join('templates', workerConfig['scriptsFolder']) : path.join(templates, workerConfig['scriptsFolder']),
-                "bitmaps_reference": path.join(currentRuntime, "reference"),
-                "bitmaps_test": path.join(currentRuntime, "test"),
-                "html_report": path.join(currentRuntime, "html_report"),
-                "ci_report": path.join(currentRuntime, "ci_report")
-            };
+        backstopConfig.paths = {
+            "engine_scripts": (workerConfig.browser === 'phantomjs') ? path.join('templates', workerConfig.scriptsFolder) : path.join(templates, workerConfig.scriptsFolder),
+            "bitmaps_reference": path.join(currentRuntime, "reference"),
+            "bitmaps_test": path.join(currentRuntime, "test"),
+            "html_report": path.join(currentRuntime, "html_report"),
+            "ci_report": path.join(currentRuntime, "ci_report")
+        };
 
-            Object.keys(backstopConfig['paths']).forEach(function (key) {
-                ensureDirectory(backstopConfig['paths'][key]);
-            });
+        Object.keys(backstopConfig.paths).forEach(function (key) {
+            ensureDirectory(backstopConfig.paths[key]);
+        });
 
-            backstopConfig['engine'] = workerConfig['engine'];
-            backstopConfig[workerConfig['engineOptions']['backstopKey']] = workerConfig['engineOptions']['options'];
-            backstopConfig['asyncCaptureLimit'] = 10;
-            backstopConfig['asyncCompareLimit'] = 10;
+        backstopConfig.engine = workerConfig.engine;
+        backstopConfig[workerConfig.engineOptions.backstopKey] = workerConfig.engineOptions.options;
+        backstopConfig.asyncCaptureLimit = 10;
+        backstopConfig.asyncCompareLimit = 10;
 
-            if (process.env.DEBUG === true) {
-                backstopConfig['debug'] = true;
-            }
-            if (process.env.DEBUG_WINDOW === true) {
-                backstopConfig['debugWindow'] = true;
-            }
+        if (process.env.DEBUG === true) {
+            backstopConfig.debug = true;
+        }
+        if (process.env.DEBUG_WINDOW === true) {
+            backstopConfig.debugWindow = true;
+        }
 
-            startABTest(backstopConfig)
-                .finally(function () {
-                    console.timeEnd('rabbitTestLoop');
-                    console.log(`Test ${backstopConfig['id']} ended.`);
-                    rabbitTestLoop();
-                });
-        })
-        .catch(error => {
-            console.timeEnd('rabbitTestLoop');
-            console.log(`Couldn't read from RabbitMQ: ${error}`);
-            const timeout = 10000;
-            return delay(timeout).then(() => {
+        fs.writeFileSync(path.join(currentRuntime, 'backstop.json'), JSON.stringify(backstopConfig));
+
+        runABTest(backstopConfig)
+            .finally(async function () {
+                commandMetrics.full.end = new Date();
+                console.timeEnd('rabbitTestLoop');
+                console.log(`Test ${backstopConfig.id} ended.`);
+                const results = await pushResults(backstopConfig);
+                console.log(`Results: ${results}`);
                 rabbitTestLoop();
             });
-        });
-
-}
-
-function connect() {
-    const parsedUrl = url.parse(process.env.INTERNAL_RABBITMQ_URL);
-    const auth = parsedUrl.auth.split(':');
-    const connectionOptions = {
-        protocol: 'amqp',
-        hostname: parsedUrl.hostname,
-        port: 5672,
-        username: auth[0],
-        password: auth[1],
-        locale: 'en_US',
-        frameMax: 0,
-        channelMax: 0,
-        heartbeat: 30,
-        vhost: '/',
-    };
-
-    return amqp.connect(connectionOptions)
-        .then((conn) => {
-            console.log('Connection to RabbitMQ has been established.');
-            rabbitConnection = conn;
-            return conn;
-        })
-        .then(conn => {
-            return conn.createChannel();
-        })
-        .then(ch => {
-            return ch.assertExchange(rabbitConfiguration['exchange'], 'direct', {})
-                .then(() => {
-                    return ch.assertQueue(rabbitConfiguration['queue'], {});
-                })
-                .then(() => {
-                    return ch.prefetch(1);
-                })
-                .then(q => {
-                    return ch.bindQueue(q.queue, rabbitConfiguration['exchange'], rabbitConfiguration['routing']);
-                })
-                .then(() => {
-                    rabbitChannel = ch;
-                    return ch;
-                })
-                .catch(err => {
-                    console.error(err);
-                    throw new Error(err.message);
-                });
-        })
-        .catch((error) => {
-            const timeout = 3000;
-            console.log(`Connection to RabbitMQ failed. Retry in ${timeout / 1000} seconds ..`);
-            console.log(util.inspect(error));
-            delay(timeout).then(() => {
-                connect();
-            });
-        });
-}
-
-connect().then(() => {
-    rabbitTestLoop();
-});
-
-function rabbitRead() {
-    return new Promise((resolve, reject) => {
-        return rabbitChannel.get(rabbitConfiguration['queue'], {}).then(msgOrFalse => {
-                if (msgOrFalse !== false) {
-                    console.log("Reading from RabbitMQ:: [-] %s", `${msgOrFalse.content.toString()} : Message received at ${new Date()}`);
-                    // @todo: Move this after the test has finished/failed.
-                    try {
-                        rabbitChannel.ack(msgOrFalse);
-                    }
-                    catch (error) {
-                        console.log('Sending ack failed.');
-                    }
-                    resolve(JSON.parse(msgOrFalse.content.toString()));
-                }
-                else {
-                    reject('No messages in queue.');
-                }
+    })
+    .catch(error => {
+        console.timeEnd('rabbitTestLoop');
+        console.log(`Couldn't read from RabbitMQ: ${error}`);
+        const timeout = 10000;
+        return delay(timeout).then(() => {
+            rabbitTestLoop();
         });
     });
 }
@@ -294,7 +407,7 @@ function beforeShutdown () {
 function onSignal () {
   console.log('server is starting cleanup');
   return Promise.all([
-    rabbitConnection.close(),
+    internalMessageQueue.getConnection().close(),
     server.close()
   ]);
 }
@@ -348,12 +461,36 @@ const terminusOptions = {
   // logger                           // [optional] logger function to be called with errors
 };
 
-connect().then(() => {
+async function run() {
+  await internalMessageQueue.connect();
+
+  try {
+    const message = await internalMessageQueue.waitChannels(5, 2000);
+    console.log(message);
+  }
+  catch (error) {
+    console.log(`Error! ${error.message}`);
+    // @todo: Exit 1.
+  }
+
+  await exposedMessageQueue.connect();
+
+  try {
+    const message = await exposedMessageQueue.waitChannels(5, 2000);
+    console.log(message);
+  }
+  catch (error) {
+    console.log(`Error! ${error.message}`);
+    // @todo: Exit 1.
+  }
+
+  rabbitTestLoop();
+
+  console.log('Setting the server..');
   server = app.listen(PORT, HOST, function () {
     console.log(`Running on http://${HOST}:${PORT}`);
     terminus(server, terminusOptions);
   });
-})
-.catch(error => {
-  console.log(`Error while connecting to RabbitMQ: ${error}`);
-});
+}
+
+run();
