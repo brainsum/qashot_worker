@@ -213,4 +213,8 @@ module.exports = class MessageQueue {
         });
     }
 
-}
+    getConnection() {
+        return this.connection;
+    }
+
+};
