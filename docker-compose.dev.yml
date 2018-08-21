@@ -68,3 +68,23 @@ services:
     restart: "no"
     ports:
     - "8080:8080" # The Web UI (enabled by --api)
+    labels:
+    - "traefik.port=8080"
+
+  prometheus:
+    restart: "no"
+
+  grafana:
+    restart: "no"
+
+  cadvisor:
+    restart: "no"
+
+  node_exporter:
+    restart: "no"
+
+  alertmanager:
+    restart: "no"
+
+  mailhog:
+    restart: "no"
