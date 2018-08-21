@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-docker-compose stop
+docker-compose -f docker-compose.yml -f docker-compose.monitoring.yml stop
