@@ -33,6 +33,7 @@ const util = require('util');
 
 const MessageQueue = require('./src/message-queue');
 
+
 function loadWorkerConfig() {
     const supportedBrowsers = [
         'chrome',
@@ -146,6 +147,9 @@ function parseResults(backstopConfig, backstopResults) {
             parsedResults.push(currentResult);
         });
 
+        const viewportCount = backstopConfig.viewports.length;
+        const scenarioCount = backstopConfig.scenarios.length;
+        const expectedTestCount = viewportCount + scenarioCount;
         const testCount = passedCount + failedCount;
         const passRate = (testCount === 0) ? 0 : passedCount / testCount;
 
@@ -161,14 +165,14 @@ function parseResults(backstopConfig, backstopResults) {
                 'stage': null,
                 'browser': workerConfig.browser,
                 'engine': workerConfig.engine,
-                'viewportCount': backstopConfig.viewports.length,
-                'scenarioCount': backstopConfig.scenarios.length,
+                'viewportCount': viewportCount,
+                'scenarioCount': scenarioCount,
                 'duration': commandMetrics,
                 'testCount': testCount,
                 'passedCount': passedCount,
                 'failedCount': failedCount,
                 'passRate': passRate,
-                'success': (failedCount === 0)
+                'success': (failedCount === 0 && testCount > 0 && testCount === expectedTestCount)
             },
             'results': parsedResults
         };
