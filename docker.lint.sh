@@ -8,6 +8,12 @@ fi
 echo "Linting files with $(./vendor/hadolint --version)"
 
 ./vendor/hadolint ./frontend/Dockerfile
+echo ""
 ./vendor/hadolint ./backstopjs_worker/Dockerfile-chrome
+echo ""
 ./vendor/hadolint ./backstopjs_worker/Dockerfile-firefox
-#./vendor/hadolint ./backstopjs_worker/Dockerfile-phantomjs
+echo ""
+./vendor/hadolint ./backstopjs_firefox_worker/Dockerfile-firefox
+echo ""
+./vendor/hadolint ./backstopjs_worker/Dockerfile-phantomjs
+echo ""
