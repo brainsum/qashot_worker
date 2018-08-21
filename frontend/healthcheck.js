@@ -1,10 +1,14 @@
 'use strict';
 
+if (undefined === process.env.EXPOSED_PORT) {
+    throw Error('Health check error: the EXPOSED_PORT environment variable is not set.');
+}
+
 const http = require('http');
 
 const options = {
     'host': '0.0.0.0',
-    'port': 8080,
+    'port': process.env.EXPOSED_PORT,
     'timeout': 3000,
     'path': '/health/readiness'
 };
