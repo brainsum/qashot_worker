@@ -6,7 +6,7 @@ ENTRYPOINT ["/sbin/tini", "--"]
 
 CMD ["npm", "start"]
 
-EXPOSE 8080
+EXPOSE 10200
 
 WORKDIR /home/node/app
 
@@ -18,7 +18,8 @@ ENV PATH="/home/node/app/node_modules/.bin:${PATH}" \
 	# Workaround to fix phantomjs-prebuilt installation errors
 	# See https://github.com/Medium/phantomjs/issues/707
 	NPM_CONFIG_UNSAFE_PERM=true \
-	TINI_VERSION=v0.18.0
+	TINI_VERSION=v0.18.0 \
+    EXPOSED_PORT=10200
 
 RUN \
     wget https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini -O /sbin/tini && \

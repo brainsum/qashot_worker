@@ -6,14 +6,15 @@ ENTRYPOINT ["/sbin/tini", "--"]
 
 CMD ["npm", "start"]
 
-EXPOSE 8080
+EXPOSE 9900
 
 WORKDIR /home/node/app
 
 HEALTHCHECK --interval=20s --timeout=3s --retries=3 \
     CMD node healthcheck.js
 
-ENV PATH="/home/node/app/node_modules/.bin:$PATH"
+ENV PATH="/home/node/app/node_modules/.bin:$PATH" \
+    EXPOSED_PORT=9900
 
 RUN apk add --no-cache tini
 

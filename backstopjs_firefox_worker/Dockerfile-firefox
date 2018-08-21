@@ -6,7 +6,7 @@ ENTRYPOINT ["/sbin/tini", "--"]
 
 CMD ["npm", "start"]
 
-EXPOSE 8080
+EXPOSE 10100
 
 WORKDIR /home/node/app
 
@@ -22,7 +22,8 @@ ENV PATH="/home/node/app/node_modules/.bin:${PATH}" \
 	NPM_CONFIG_UNSAFE_PERM=true \
 #	FIREFOX_VERSION=59.0 \
 	FIREFOX_ESR_VERSION=52.* \
-	TINI_VERSION=v0.18.0
+	TINI_VERSION=v0.18.0 \
+    EXPOSED_PORT=10100
 
 RUN \
 #    wget "http://ftp.mozilla.org/pub/firefox/releases/${FIREFOX_VERSION}/linux-$(uname -m)/en-US/firefox-${FIREFOX_VERSION}.tar.bz2" && \
