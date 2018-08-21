@@ -225,6 +225,11 @@ function pushResults(backstopConfig) {
         });
 }
 
+/**
+ *
+ * @param config
+ * @return {*|void|PromiseLike<T | never>|Promise<T | never>}
+ */
 function runABTest(config) {
     commandMetrics.full = {
         'start': new Date()
@@ -233,7 +238,6 @@ function runABTest(config) {
 
     return executeReference(config)
         .then(function () {
-            commandMetrics.full.end = new Date();
             return executeTest(config);
         });
 }
@@ -296,6 +300,7 @@ function rabbitTestLoop() {
 
             runABTest(backstopConfig)
                 .finally(async function () {
+                    commandMetrics.full.end = new Date();
                     console.timeEnd('rabbitTestLoop');
                     console.log(`Test ${backstopConfig.id} ended.`);
                     const results = await pushResults(backstopConfig);
