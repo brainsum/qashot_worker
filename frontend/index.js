@@ -4,7 +4,8 @@ function preFlightCheck() {
     const requiredEnvVars = [
         'SUPPORTED_BROWSERS',
         'INTERNAL_RABBITMQ_URL',
-        'JWT_SECRET_KEY'
+        'JWT_SECRET_KEY',
+        'EXPOSED_PORT'
     ];
 
     let success = true;
@@ -35,7 +36,7 @@ const url = require('url');
 const internalMessageQueue = require('./src/message-queue');
 
 // Constants
-const PORT = 8080;
+const PORT = process.env.EXPOSED_PORT;
 const HOST = '0.0.0.0';
 
 function getInternalMQOptions() {

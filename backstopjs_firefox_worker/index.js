@@ -6,7 +6,8 @@ function preFlightCheck() {
     'WORKER_ENGINE',
     'INTERNAL_RABBITMQ_URL',
     'EXPOSED_RABBITMQ_URL',
-    'JWT_SECRET_KEY'
+    'JWT_SECRET_KEY',
+    'EXPOSED_PORT'
   ];
 
   let success = true;
@@ -43,7 +44,7 @@ function loadWorkerConfig() {
 
   if (supportedBrowsers.includes(process.env.WORKER_BROWSER)) {
     const filename = `worker-config.${process.env.WORKER_BROWSER}.json`;
-    return JSON.parse(fs.readFileSync(path.join(__dirname, filename)));
+    return JSON.parse(fs.readFileSync(path.join(__dirname, filename), 'utf8'));
   }
 
   throw new Error('Could not load configuration for the worker.');
@@ -55,9 +56,10 @@ function ensureDirectory(path) {
   }
 }
 
-const PORT = 8080;
-const HOST = '0.0.0.0';
 const workerConfig = loadWorkerConfig();
+
+const PORT = process.env.EXPOSED_PORT;
+const HOST = '0.0.0.0';
 
 let internalChannelConfigs = {};
 internalChannelConfigs[workerConfig.browser] = {
