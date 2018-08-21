@@ -2,7 +2,7 @@ version: "3.7"
 services:
   # Internal only.
   backstopjs_worker_chrome:
-    image: brainsum/qashot_worker_backstopjs_chrome:0.2.11
+    image: brainsum/qashot_worker_backstopjs_chrome:0.3.0
     environment:
     - "NODE_ENV=production"
     - "WORKER_BROWSER=chrome"
@@ -10,6 +10,7 @@ services:
     - "INTERNAL_RABBITMQ_URL=amqp://user:bitnami@internal_rabbitmq:${INTERNAL_RABBITMQ_PORT}"
     - "EXPOSED_RABBITMQ_URL=amqp://user:bitnami@exposed_rabbitmq:${EXPOSED_RABBITMQ_PORT}"
     - "JWT_SECRET_KEY=${JWT_SECRET_KEY}"
+    - "EXPOSED_PORT=10000"
     depends_on:
     - frontend
     - internal_rabbitmq
@@ -17,7 +18,7 @@ services:
     labels:
     - "traefik.backend=backstopjs_worker_chrome"
     - "traefik.frontend.rule=Host:backstopjs-worker-chrome.${PROJECT_BASE_URL}"
-    - "traefik.port=8080"
+    - "traefik.port=10000"
     - "traefik.backend.loadbalancer.method=drr"
     - "traefik.enable=false"
     - "traefik.docker.network=internal"
@@ -32,7 +33,7 @@ services:
       retries: 5
 
   backstopjs_worker_firefox:
-    image: brainsum/qashot_worker_backstopjs_firefox:0.1.0
+    image: brainsum/qashot_worker_backstopjs_firefox:0.3.0
     environment:
     - "NODE_ENV=production"
     - "WORKER_BROWSER=firefox"
@@ -40,6 +41,7 @@ services:
     - "INTERNAL_RABBITMQ_URL=amqp://user:bitnami@internal_rabbitmq:${INTERNAL_RABBITMQ_PORT}"
     - "EXPOSED_RABBITMQ_URL=amqp://user:bitnami@exposed_rabbitmq:${EXPOSED_RABBITMQ_PORT}"
     - "JWT_SECRET_KEY=${JWT_SECRET_KEY}"
+    - "EXPOSED_PORT=10100"
     depends_on:
     - frontend
     - internal_rabbitmq
@@ -47,7 +49,7 @@ services:
     labels:
     - "traefik.backend=backstopjs_worker_firefox"
     - "traefik.frontend.rule=Host:backstopjs-worker-firefox.${PROJECT_BASE_URL}"
-    - "traefik.port=8080"
+    - "traefik.port=10100"
     - "traefik.backend.loadbalancer.method=drr"
     - "traefik.enable=false"
     - "traefik.docker.network=internal"
@@ -62,7 +64,7 @@ services:
       retries: 5
 
   backstopjs_worker_phantomjs:
-    image: brainsum/qashot_worker_backstopjs_phantomjs:0.1.0
+    image: brainsum/qashot_worker_backstopjs_phantomjs:0.3.0
     environment:
     - "NODE_ENV=production"
     - "WORKER_BROWSER=phantomjs"
@@ -70,6 +72,7 @@ services:
     - "INTERNAL_RABBITMQ_URL=amqp://user:bitnami@internal_rabbitmq:${INTERNAL_RABBITMQ_PORT}"
     - "EXPOSED_RABBITMQ_URL=amqp://user:bitnami@exposed_rabbitmq:${EXPOSED_RABBITMQ_PORT}"
     - "JWT_SECRET_KEY=${JWT_SECRET_KEY}"
+    - "EXPOSED_PORT=10200"
     depends_on:
     - frontend
     - internal_rabbitmq
@@ -77,7 +80,7 @@ services:
     labels:
     - "traefik.backend=backstopjs_worker_phantomjs"
     - "traefik.frontend.rule=Host:backstopjs-worker-phantomjs.${PROJECT_BASE_URL}"
-    - "traefik.port=8080"
+    - "traefik.port=10200"
     - "traefik.backend.loadbalancer.method=drr"
     - "traefik.enable=false"
     - "traefik.docker.network=internal"
@@ -122,19 +125,21 @@ services:
 
   # Exposed.
   frontend:
-    image: brainsum/qashot_worker_frontend:0.1.3
+    image: brainsum/qashot_worker_frontend:0.3.0
     environment:
     - "NODE_ENV=production"
     - "INTERNAL_RABBITMQ_URL=amqp://user:bitnami@internal_rabbitmq:${INTERNAL_RABBITMQ_PORT}"
     - "SUPPORTED_BROWSERS=chrome;firefox;phantomjs"
     - "JWT_SECRET_KEY=${JWT_SECRET_KEY}"
+    - "EXPOSED_PORT=9900"
     depends_on:
     - internal_rabbitmq
     restart: on-failure
     labels:
     - "traefik.backend=frontend"
+    - "traefik.enable=true"
     - "traefik.frontend.rule=Host:${PROJECT_BASE_URL}"
-    - "traefik.port=8080"
+    - "traefik.port=9900"
     - "traefik.docker.network=internal,exposed"
     networks:
     - internal
@@ -200,15 +205,21 @@ services:
   # Other.
   traefik:
     image: traefik:v1.6.5-alpine # The official Traefik docker image
-    command: ["--api", "--docker"] # Enables the web UI and tells Træfik to listen to docker
+    container_name: "${PROJECT_NAME}_traefik"
     restart: on-failure
     ports:
-    - "80:80"     # The HTTP port
+    - "80:80"
+    - "443:443"
     networks:
     - internal
     - exposed
     volumes:
-    - /var/run/docker.sock:/var/run/docker.sock # So that Traefik can listen to the Docker events
+    - /var/run/docker.sock:/var/run/docker.sock
+    - ./traefik/traefik.toml:/etc/traefik/traefik.toml
+    labels:
+    - "traefik.backend=traefik"
+    - "traefik.frontend.rule=Host:traefik.${PROJECT_BASE_URL}"
+    - "traefik.enable=true"
 
 networks:
   internal: {}
