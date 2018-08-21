@@ -4,7 +4,7 @@ LABEL maintainer="mhavelant"
 
 ENTRYPOINT ["/sbin/tini", "--"]
 
-CMD ["npm", "start"]
+CMD ["xvfb-run", "-a", "npm", "start"]
 
 EXPOSE 8080
 
@@ -15,12 +15,11 @@ HEALTHCHECK --interval=20s --timeout=3s --retries=3 \
 
 # @see: https://github.com/docksal/backstopjs/blob/master/Dockerfile
 ENV PATH="/home/node/app/node_modules/.bin:${PATH}" \
-	# Workaround to fix phantomjs-prebuilt installation errors
-	# See https://github.com/Medium/phantomjs/issues/707
+	DISPLAY=localhost:0.0 \
+    MOZ_HEADLESS=1 \
 	NPM_CONFIG_UNSAFE_PERM=true \
-	FIREFOX_VERSION=59.0 \
-	TINI_VERSION=v0.18.0 \
-	MOZ_HEADLESS=1
+	FIREFOX_VERSION=52.9.0esr \
+	TINI_VERSION=v0.18.0
 
 RUN \
     wget "http://ftp.mozilla.org/pub/firefox/releases/${FIREFOX_VERSION}/linux-$(uname -m)/en-US/firefox-${FIREFOX_VERSION}.tar.bz2" && \
@@ -33,6 +32,8 @@ RUN \
 
 RUN \
     apt-get update && apt-get install -y --no-install-recommends \
+        xvfb \
+        xauth \
         libc6 \
         libstdc++6 \
         libgcc1 \
@@ -49,6 +50,7 @@ RUN \
         ca-certificates \
         software-properties-common \
         python-software-properties && \
+#        firefox-esr=${FIREFOX_ESR_VERSION} && \
     # Cleanupetc
     apt-get -y clean && \
     apt-get -y autoclean && \
@@ -62,6 +64,8 @@ RUN \
 COPY package*.json ./
 
 RUN npm install --only=production && \
+    # For some reason the new version does not work with slimer.
+    npm install --save backstopjs@v3.0.26 && \
     npm cache -g clean --force && \
     usermod -a -G audio,video node && \
     mkdir -p /home/node/Downloads && \
