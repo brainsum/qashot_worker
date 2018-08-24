@@ -366,6 +366,11 @@ function rabbitTestLoop() {
         backstopConfig[workerConfig.engineOptions.backstopKey] = workerConfig.engineOptions.options;
         backstopConfig.asyncCaptureLimit = 10;
         backstopConfig.asyncCompareLimit = 10;
+        // Force CI reporting, otherwise backstop opens the html report and
+        // the processes hang indefinitely.
+        backstopConfig.report = [
+          "CI"
+        ];
 
         if (process.env.DEBUG === true) {
             backstopConfig.debug = true;
