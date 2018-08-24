@@ -269,6 +269,9 @@ function rabbitTestLoop() {
             // @todo: Maybe use this for something.
             // const originalBackstopConfig = data;
             let backstopConfig = data;
+            // @fixme @todo: This is temporary:
+            backstopConfig.id = String(backstopConfig.id);
+
             console.log('Data received. Config ID is: ' + backstopConfig.id);
             const templates = path.join(__dirname, 'templates');
             const currentRuntime = path.join(__dirname, 'runtime', workerConfig.browser, backstopConfig.id);
