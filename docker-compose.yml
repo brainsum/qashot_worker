@@ -135,7 +135,7 @@ services:
     # - "traefik.frontend.rule=Host:internal-rabbitmq.${PROJECT_BASE_URL}"
 
   frontend:
-    image: brainsum/qashot_worker_frontend:0.3.0
+    image: brainsum/qashot_worker_frontend:0.5.0
     environment:
     - "NODE_ENV=production"
     - "INTERNAL_RABBITMQ_URL=amqp://user:bitnami@internal_rabbitmq:${INTERNAL_RABBITMQ_PORT}"
