@@ -124,7 +124,7 @@ else {
 
 /**
  *
- * @param config
+ * @param {Object} config
  * @return {*|void|PromiseLike<T | never>|Promise<T | never>}
  */
 const runABTest = function runABTest(config) {

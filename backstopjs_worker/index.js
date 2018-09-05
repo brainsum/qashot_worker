@@ -77,24 +77,27 @@ ensureDirectory(path.join(appRootDir, 'runtime', workerConfig.browser));
 /**
  *
  * @param {Object} results
+ * @param {Object} message
  * @return {Promise<any>}
  */
-function sendResults(results) {
+function sendResults(results, message) {
     console.log(util.inspect(results));
+    results.original_request = message;
     return exposedMessageQueue.write(workerConfig.browser, JSON.stringify(results));
 }
 
 /**
  *
  * @param {Object} backstopConfig
+ * @param {Object} message
  * @return {Promise<any | never>}
  */
-function pushResults(backstopConfig) {
+function pushResults(backstopConfig, message) {
     return backstopApi.loadResults(backstopConfig.paths.html_report, backstopConfig.id).then(loadedResults => {
         return backstopApi.parseResults(backstopConfig, loadedResults);
     })
         .then(parsedResults => {
-            return sendResults(parsedResults);
+            return sendResults(parsedResults, message);
         })
         .catch((error) => {
             return error;
@@ -116,10 +119,10 @@ function rabbitTestLoop() {
     console.time('rabbitTestLoop');
 
     internalMessageQueue.read(workerConfig.browser)
-        .then(data => {
+        .then(message => {
             // @todo: Maybe use this for something.
-            // const originalBackstopConfig = data;
-            let backstopConfig = data;
+            // const originalBackstopConfig = message.test_config;
+            let backstopConfig = message.test_config;
             // @fixme @todo: This is temporary:
             backstopConfig.id = String(backstopConfig.id);
 
@@ -163,7 +166,7 @@ function rabbitTestLoop() {
                 .finally(async function () {
                     console.timeEnd('rabbitTestLoop');
                     console.log(`Test ${backstopConfig.id} ended.`);
-                    const results = await pushResults(backstopConfig);
+                    const results = await pushResults(backstopConfig, message);
                     console.log(`Results: ${results}`);
                     rabbitTestLoop();
                 });
