@@ -1,6 +1,5 @@
 version: "3.7"
 services:
-  # Internal only.
   backstopjs_worker_chrome:
     image: brainsum/qashot_worker_backstopjs_chrome:0.3.0
     environment:
@@ -11,19 +10,22 @@ services:
     - "EXPOSED_RABBITMQ_URL=amqp://user:bitnami@exposed_rabbitmq:${EXPOSED_RABBITMQ_PORT}"
     - "JWT_SECRET_KEY=${JWT_SECRET_KEY}"
     - "EXPOSED_PORT=10000"
+    - "RESULTS_ENDPOINT_URL=${RESULTS_ENDPOINT_URL}"
     depends_on:
-    - frontend
     - internal_rabbitmq
+    - exposed_rabbitmq
     restart: on-failure
     labels:
+    - "traefik.enable=false"
     - "traefik.backend=backstopjs_worker_chrome"
     - "traefik.frontend.rule=Host:backstopjs-worker-chrome.${PROJECT_BASE_URL}"
     - "traefik.port=10000"
     - "traefik.backend.loadbalancer.method=drr"
-    - "traefik.enable=false"
-    - "traefik.docker.network=internal"
+    - "traefik.docker.network=${PROJECT_NAME}_chrome_worker_internal_rabbitmq"
     networks:
-    - internal
+    - chrome_worker_internal_rabbitmq
+    - chrome_worker_exposed_rabbitmq
+    - chrome_worker_monitoring
     volumes:
       - chrome_runtime:/home/node/app/runtime/chrome
     healthcheck:
@@ -42,19 +44,22 @@ services:
     - "EXPOSED_RABBITMQ_URL=amqp://user:bitnami@exposed_rabbitmq:${EXPOSED_RABBITMQ_PORT}"
     - "JWT_SECRET_KEY=${JWT_SECRET_KEY}"
     - "EXPOSED_PORT=10100"
+    - "RESULTS_ENDPOINT_URL=${RESULTS_ENDPOINT_URL}"
     depends_on:
-    - frontend
     - internal_rabbitmq
+    - exposed_rabbitmq
     restart: on-failure
     labels:
+    - "traefik.enable=false"
     - "traefik.backend=backstopjs_worker_firefox"
     - "traefik.frontend.rule=Host:backstopjs-worker-firefox.${PROJECT_BASE_URL}"
     - "traefik.port=10100"
     - "traefik.backend.loadbalancer.method=drr"
-    - "traefik.enable=false"
-    - "traefik.docker.network=internal"
+    - "traefik.docker.network=${PROJECT_NAME}_firefox_worker_internal_rabbitmq"
     networks:
-    - internal
+    - firefox_worker_internal_rabbitmq
+    - firefox_worker_exposed_rabbitmq
+    - firefox_worker_monitoring
     volumes:
     - firefox_runtime:/home/node/app/runtime/firefox
     healthcheck:
@@ -73,19 +78,22 @@ services:
     - "EXPOSED_RABBITMQ_URL=amqp://user:bitnami@exposed_rabbitmq:${EXPOSED_RABBITMQ_PORT}"
     - "JWT_SECRET_KEY=${JWT_SECRET_KEY}"
     - "EXPOSED_PORT=10200"
+    - "RESULTS_ENDPOINT_URL=${RESULTS_ENDPOINT_URL}"
     depends_on:
-    - frontend
     - internal_rabbitmq
+    - exposed_rabbitmq
     restart: on-failure
     labels:
+    - "traefik.enable=false"
     - "traefik.backend=backstopjs_worker_phantomjs"
     - "traefik.frontend.rule=Host:backstopjs-worker-phantomjs.${PROJECT_BASE_URL}"
     - "traefik.port=10200"
     - "traefik.backend.loadbalancer.method=drr"
-    - "traefik.enable=false"
-    - "traefik.docker.network=internal"
+    - "traefik.docker.network=${PROJECT_NAME}_phantomjs_worker_internal_rabbitmq"
     networks:
-    - internal
+    - phantomjs_worker_internal_rabbitmq
+    - phantomjs_worker_exposed_rabbitmq
+    - phantomjs_worker_monitoring
     volumes:
     - phantomjs_runtime:/home/node/app/runtime/phantomjs
     healthcheck:
@@ -101,29 +109,31 @@ services:
     - "RABBITMQ_PASSWORD=bitnami"
     - "RABBITMQ_VHOST=/"
     - "RABBITMQ_NODE_TYPE=stats"
-    - "RABBITMQ_NODE_PORT_NUMBER=5672"
-    - "RABBITMQ_MANAGER_PORT_NUMBER=15672"
+    - "RABBITMQ_NODE_PORT_NUMBER=${INTERNAL_RABBITMQ_PORT}"
+    - "RABBITMQ_MANAGER_PORT_NUMBER=1${INTERNAL_RABBITMQ_PORT}"
     - "RABBITMQ_DISK_FREE_LIMIT={mem_relative, 1.0}"
     - "RABBITMQ_ULIMIT_NOFILES=65536"
     volumes:
     - ./runtime/internal_rabbitmq_data:/bitnami
     stop_grace_period: 10s
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:15672"]
+      test: ["CMD", "curl", "-f", "http://localhost:1${INTERNAL_RABBITMQ_PORT}"]
       interval: 30s
       timeout: 10s
       retries: 5
     restart: on-failure
     networks:
-    - internal
+    - frontend_internal_rabbitmq
+    - chrome_worker_internal_rabbitmq
+    - firefox_worker_internal_rabbitmq
+    - phantomjs_worker_internal_rabbitmq
     labels:
-    - "traefik.port=${INTERNAL_RABBITMQ_PORT}"
     - "traefik.enable=false"
-    - "traefik.docker.network=internal"
+    - "traefik.port=${INTERNAL_RABBITMQ_PORT}"
+    - "traefik.docker.network=${PROJECT_NAME}_backend"
     # - "traefik.backend=internal_rabbitmq"
-    # - 'traefik.frontend.rule=Host:internal-rabbitmq.${PROJECT_BASE_URL}'
+    # - "traefik.frontend.rule=Host:internal-rabbitmq.${PROJECT_BASE_URL}"
 
-  # Exposed.
   frontend:
     image: brainsum/qashot_worker_frontend:0.3.0
     environment:
@@ -136,32 +146,31 @@ services:
     - internal_rabbitmq
     restart: on-failure
     labels:
-    - "traefik.backend=frontend"
     - "traefik.enable=true"
+    - "traefik.backend=frontend"
     - "traefik.frontend.rule=Host:${PROJECT_BASE_URL}"
     - "traefik.port=9900"
-    - "traefik.docker.network=internal,exposed"
+    - "traefik.docker.network=${PROJECT_NAME}_frontend"
     networks:
-    - internal
-    - exposed
+    - frontend
+    - frontend_internal_rabbitmq
+    - frontend_monitoring
     volumes:
     - type: volume
-      source: phantomjs_runtime
-      target: /home/node/app/runtime/phantomjs
+      source: chrome_runtime
+      target: /home/node/app/runtime/chrome
       read_only: true
       volume:
         nocopy: true
-
     - type: volume
       source: firefox_runtime
       target: /home/node/app/runtime/firefox
       read_only: true
       volume:
         nocopy: true
-
     - type: volume
-      source: chrome_runtime
-      target: /home/node/app/runtime/chrome
+      source: phantomjs_runtime
+      target: /home/node/app/runtime/phantomjs
       read_only: true
       volume:
         nocopy: true
@@ -179,28 +188,30 @@ services:
     - "RABBITMQ_PASSWORD=bitnami"
     - "RABBITMQ_VHOST=/"
     - "RABBITMQ_NODE_TYPE=stats"
-    - "RABBITMQ_NODE_PORT_NUMBER=5672"
-    - "RABBITMQ_MANAGER_PORT_NUMBER=15672"
+    - "RABBITMQ_NODE_PORT_NUMBER=${EXPOSED_RABBITMQ_PORT}"
+    - "RABBITMQ_MANAGER_PORT_NUMBER=1${EXPOSED_RABBITMQ_PORT}"
     - "RABBITMQ_DISK_FREE_LIMIT={mem_relative, 1.0}"
     - "RABBITMQ_ULIMIT_NOFILES=65536"
     volumes:
     - ./runtime/exposed_rabbitmq_data:/bitnami
     stop_grace_period: 10s
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:15682"]
+      test: ["CMD", "curl", "-f", "http://localhost:1${EXPOSED_RABBITMQ_PORT}"]
       interval: 30s
       timeout: 10s
       retries: 5
     restart: on-failure
     networks:
     - exposed
-    - internal
+    - chrome_worker_exposed_rabbitmq
+    - firefox_worker_exposed_rabbitmq
+    - phantomjs_worker_exposed_rabbitmq
     labels:
+    - "traefik.enable=false"
     - "traefik.port=${EXPOSED_RABBITMQ_PORT}"
-    - "traefik.enable=true"
     - "traefik.backend=exposed_rabbitmq"
-    - 'traefik.frontend.rule=Host:exposed-rabbitmq.${PROJECT_BASE_URL}'
-    - "traefik.docker.network=internal,exposed"
+    - "traefik.frontend.rule=Host:exposed-rabbitmq.${PROJECT_BASE_URL}"
+    - "traefik.docker.network=${PROJECT_NAME}_exposed"
 
   # Other.
   traefik:
@@ -208,22 +219,44 @@ services:
     container_name: "${PROJECT_NAME}_traefik"
     restart: on-failure
     ports:
-    - "80:80"
+    - "${TRAEFIK_HOST_PORT}:80"
     - "443:443"
     networks:
-    - internal
+    - frontend
     - exposed
+    - frontend_internal_rabbitmq
+    - chrome_worker_exposed_rabbitmq
+    - firefox_worker_exposed_rabbitmq
+    - phantomjs_worker_exposed_rabbitmq
+    - chrome_worker_internal_rabbitmq
+    - firefox_worker_internal_rabbitmq
+    - phantomjs_worker_internal_rabbitmq
+    - chrome_worker_monitoring
+    - firefox_worker_monitoring
+    - phantomjs_worker_monitoring
+    - frontend_monitoring
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
     - ./traefik/traefik.toml:/etc/traefik/traefik.toml
     labels:
+    - "traefik.enable=false"
     - "traefik.backend=traefik"
     - "traefik.frontend.rule=Host:traefik.${PROJECT_BASE_URL}"
-    - "traefik.enable=true"
 
 networks:
-  internal: {}
+  frontend: {}
   exposed: {}
+  frontend_internal_rabbitmq: {}
+  chrome_worker_exposed_rabbitmq: {}
+  firefox_worker_exposed_rabbitmq: {}
+  phantomjs_worker_exposed_rabbitmq: {}
+  chrome_worker_internal_rabbitmq: {}
+  firefox_worker_internal_rabbitmq: {}
+  phantomjs_worker_internal_rabbitmq: {}
+  frontend_monitoring: {}
+  chrome_worker_monitoring: {}
+  firefox_worker_monitoring: {}
+  phantomjs_worker_monitoring: {}
 
 volumes:
   chrome_runtime: {}

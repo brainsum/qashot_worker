@@ -53,10 +53,12 @@ services:
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
     labels:
-    - 'traefik.backend=portainer'
-    - 'traefik.port=9000'
-    - 'traefik.frontend.rule=Host:portainer.${PROJECT_BASE_URL}'
+    - "traefik.backend=portainer"
+    - "traefik.port=9000"
+    - "traefik.frontend.rule=Host:portainer.${PROJECT_BASE_URL}"
     restart: "no"
+    networks:
+    - monitoring
 
   internal_rabbitmq:
     restart: "no"
