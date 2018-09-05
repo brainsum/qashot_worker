@@ -7,7 +7,8 @@ function preFlightCheck() {
         'INTERNAL_RABBITMQ_URL',
         'EXPOSED_RABBITMQ_URL',
         'JWT_SECRET_KEY',
-        'EXPOSED_PORT'
+        'EXPOSED_PORT',
+        'RESULTS_ENDPOINT_URL'
     ];
 
     let success = true;
@@ -58,6 +59,7 @@ function ensureDirectory(path) {
 
 const workerConfig = loadWorkerConfig();
 
+const RESULTS_ENDPOINT_URL = process.env.RESULTS_ENDPOINT_URL;
 const PORT = process.env.EXPOSED_PORT;
 const HOST = '0.0.0.0';
 
@@ -142,9 +144,19 @@ function parseResults(backstopConfig, backstopResults) {
                 'success': isSuccess,
                 'reference': test.pair.reference,
                 'test': test.pair.test,
-                'diffImage': test.pair.diffImage,
-                'misMatchPercentage': test.pair.diff.misMatchPercentage
+                'diffImage': null,
+                'misMatchPercentage': null
             };
+
+            if ('undefined' !== typeof test.pair.diff && 'undefined' !== typeof test.pair.diff.misMatchPercentage) {
+                currentResult.misMatchPercentage = test.pair.diff.misMatchPercentage;
+            }
+            if (test.pair.diffImage) {
+                currentResult.diffImage = test.pair.diffImage;
+            }
+            if (test.pair.error) {
+                currentResult.error = test.pair.error;
+            }
 
             parsedResults.push(currentResult);
         });
@@ -176,7 +188,8 @@ function parseResults(backstopConfig, backstopResults) {
                 'passRate': passRate,
                 'success': (failedCount === 0 && testCount > 0 && testCount === expectedTestCount)
             },
-            'results': parsedResults
+            'results': parsedResults,
+            'resultsUrl': `http://${RESULTS_ENDPOINT_URL}/api/v1/reports/${workerConfig.browser}/${backstopConfig.id}/html_report`
         };
         return resolve(finalResults);
     });
