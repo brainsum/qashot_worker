@@ -26,30 +26,16 @@ function preFlightCheck() {
 
 preFlightCheck();
 
+const appRootDir = require('./src/app-root');
 const express = require('express');
 const terminus = require('@godaddy/terminus');
 const path = require('path');
 const fs = require('fs');
-const backstop = require('backstopjs');
 const util = require('util');
+const workerConfig = require('./src/worker-config');
+const backstopApi = require('./src/backstop-api');
 
 const MessageQueue = require('./src/message-queue');
-
-
-function loadWorkerConfig() {
-    const supportedBrowsers = [
-        'chrome',
-        'firefox',
-        'phantomjs'
-    ];
-
-    if (supportedBrowsers.includes(process.env.WORKER_BROWSER)) {
-        const filename = `worker-config.${process.env.WORKER_BROWSER}.json`;
-        return JSON.parse(fs.readFileSync(path.join(__dirname, filename), 'utf8'));
-    }
-
-    throw new Error('Could not load configuration for the worker.');
-}
 
 function ensureDirectory(path) {
     if (!fs.existsSync(path)) {
@@ -57,9 +43,12 @@ function ensureDirectory(path) {
     }
 }
 
-const workerConfig = loadWorkerConfig();
+function delay(t, v) {
+    return new Promise(function(resolve) {
+        setTimeout(resolve.bind(null, v), t)
+    });
+}
 
-const RESULTS_ENDPOINT_URL = process.env.RESULTS_ENDPOINT_URL;
 const PORT = process.env.EXPOSED_PORT;
 const HOST = '0.0.0.0';
 
@@ -82,136 +71,8 @@ exposedChannelConfigs[workerConfig.browser] = {
 const internalMessageQueue = new MessageQueue('InternalMQ', process.env.INTERNAL_RABBITMQ_URL, internalChannelConfigs);
 const exposedMessageQueue = new MessageQueue('ExposedMQ', process.env.EXPOSED_RABBITMQ_URL, exposedChannelConfigs);
 
-let commandMetrics = {};
-
-ensureDirectory(path.join(__dirname, 'runtime'));
-ensureDirectory(path.join(__dirname, 'runtime', workerConfig.browser));
-
-function executeReference(config) {
-    commandMetrics.reference = {
-        'start': new Date()
-    };
-    return backstop('reference', { config: config })
-        .then(function () {
-            console.log(`Reference success for test ${config.id}.`);
-            commandMetrics.reference.end = new Date();
-        })
-        .catch(function () {
-            console.error(`Reference fail for test ${config.id}.`);
-            commandMetrics.reference.end = new Date();
-        });
-}
-
-function executeTest(config) {
-    commandMetrics.test = {
-        'start': new Date()
-    };
-    return backstop('test', { config: config })
-        .then(function () {
-            console.log(`Test success for test ${config.id}.`);
-            commandMetrics.test.end = new Date();
-        })
-        .catch(function () {
-            console.error(`Test fail for test ${config.id}.`);
-            commandMetrics.test.end = new Date();
-        });
-}
-
-/**
- *
- * @param {Object} backstopConfig
- * @param {Object} backstopResults
- * @return {Promise<any>}
- */
-function parseResults(backstopConfig, backstopResults) {
-    return new Promise(resolve => {
-        let passedCount = 0;
-        let failedCount = 0;
-        let parsedResults = [];
-
-        backstopResults.tests.forEach(function(test) {
-            const isSuccess = (test.status === 'pass');
-            if (isSuccess) {
-                ++passedCount;
-            }
-            else {
-                ++failedCount;
-            }
-
-            let currentResult = {
-                'scenarioLabel': test.pair.label,
-                'viewportLabel': test.pair.viewportLabel,
-                'success': isSuccess,
-                'reference': test.pair.reference,
-                'test': test.pair.test,
-                'diffImage': null,
-                'misMatchPercentage': null
-            };
-
-            if ('undefined' !== typeof test.pair.diff && 'undefined' !== typeof test.pair.diff.misMatchPercentage) {
-                currentResult.misMatchPercentage = test.pair.diff.misMatchPercentage;
-            }
-            if (test.pair.diffImage) {
-                currentResult.diffImage = test.pair.diffImage;
-            }
-            if (test.pair.error) {
-                currentResult.error = test.pair.error;
-            }
-
-            parsedResults.push(currentResult);
-        });
-
-        const viewportCount = backstopConfig.viewports.length;
-        const scenarioCount = backstopConfig.scenarios.length;
-        const expectedTestCount = viewportCount + scenarioCount;
-        const testCount = passedCount + failedCount;
-        const passRate = (testCount === 0) ? 0 : passedCount / testCount;
-
-        Object.keys(commandMetrics).forEach(function (command) {
-            commandMetrics[command].duration = (commandMetrics[command].end - commandMetrics[command].start) / 1000;
-            commandMetrics[command].metric_type = 'seconds';
-        });
-
-        let finalResults = {
-            'metadata': {
-                'id': backstopConfig.id,
-                'mode': 'a_b',
-                'stage': null,
-                'browser': workerConfig.browser,
-                'engine': workerConfig.engine,
-                'viewportCount': viewportCount,
-                'scenarioCount': scenarioCount,
-                'duration': commandMetrics,
-                'testCount': testCount,
-                'passedCount': passedCount,
-                'failedCount': failedCount,
-                'passRate': passRate,
-                'success': (failedCount === 0 && testCount > 0 && testCount === expectedTestCount)
-            },
-            'results': parsedResults,
-            'resultsUrl': `http://${RESULTS_ENDPOINT_URL}/api/v1/reports/${workerConfig.browser}/${backstopConfig.id}/html_report`
-        };
-        return resolve(finalResults);
-    });
-}
-
-/**
- *
- * @param {String} reportPath
- * @param {String|Number} id
- * @return {Promise<any>}
- */
-function loadResults(reportPath, id) {
-    return new Promise(((resolve, reject) => {
-        const resultFile = path.join(reportPath, 'config.js');
-        if (!fs.existsSync(resultFile)) {
-            return reject(`The results file for the ${id} test does not exits.`);
-        }
-        // @todo: This should work, but making it more robust would be nice.
-        const results = JSON.parse(fs.readFileSync(resultFile, 'utf8').replace('report(', '').replace(');', ''));
-        return resolve(results);
-    }));
-}
+ensureDirectory(path.join(appRootDir, 'runtime'));
+ensureDirectory(path.join(appRootDir, 'runtime', workerConfig.browser));
 
 /**
  *
@@ -229,8 +90,8 @@ function sendResults(results) {
  * @return {Promise<any | never>}
  */
 function pushResults(backstopConfig) {
-    return loadResults(backstopConfig.paths.html_report, backstopConfig.id).then(loadedResults => {
-        return parseResults(backstopConfig, loadedResults);
+    return backstopApi.loadResults(backstopConfig.paths.html_report, backstopConfig.id).then(loadedResults => {
+        return backstopApi.parseResults(backstopConfig, loadedResults);
     })
         .then(parsedResults => {
             return sendResults(parsedResults);
@@ -240,32 +101,9 @@ function pushResults(backstopConfig) {
         });
 }
 
-/**
- *
- * @param config
- * @return {*|void|PromiseLike<T | never>|Promise<T | never>}
- */
-function runABTest(config) {
-    commandMetrics.full = {
-        'start': new Date()
-    };
-    console.log(util.inspect(config));
-
-    return executeReference(config)
-        .then(function () {
-            return executeTest(config);
-        });
-}
-
-function delay(t, v) {
-    return new Promise(function(resolve) {
-        setTimeout(resolve.bind(null, v), t)
-    });
-}
-
 // const defaultTestConfig = {
 //     'paths': {
-//       'engine_scripts': (workerConfig.browser === 'phantomjs') ? path.join('templates', workerConfig.scriptsFolder) : path.join(__dirname, 'templates', workerConfig.scriptsFolder)
+//       'engine_scripts': (workerConfig.browser === 'phantomjs') ? path.join('templates', workerConfig.scriptsFolder) : path.join(appRootDir, 'templates', workerConfig.scriptsFolder)
 //     },
 //     'engine': workerConfig.engine,
 //     'asyncCaptureLimit': 10,
@@ -286,8 +124,8 @@ function rabbitTestLoop() {
             backstopConfig.id = String(backstopConfig.id);
 
             console.log('Data received. Config ID is: ' + backstopConfig.id);
-            const templates = path.join(__dirname, 'templates');
-            const currentRuntime = path.join(__dirname, 'runtime', workerConfig.browser, backstopConfig.id);
+            const templates = path.join(appRootDir, 'templates');
+            const currentRuntime = path.join(appRootDir, 'runtime', workerConfig.browser, backstopConfig.id);
             ensureDirectory(currentRuntime);
 
             backstopConfig.paths = {
@@ -321,9 +159,8 @@ function rabbitTestLoop() {
 
             fs.writeFileSync(path.join(currentRuntime, 'backstop.json'), JSON.stringify(backstopConfig));
 
-            runABTest(backstopConfig)
+            backstopApi.runABTest(backstopConfig)
                 .finally(async function () {
-                    commandMetrics.full.end = new Date();
                     console.timeEnd('rabbitTestLoop');
                     console.log(`Test ${backstopConfig.id} ended.`);
                     const results = await pushResults(backstopConfig);
