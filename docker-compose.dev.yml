@@ -25,14 +25,14 @@ services:
 
   backstopjs_worker_firefox:
     build:
-      context: ./backstopjs_firefox_worker
+      context: ./backstopjs_worker
       dockerfile: Dockerfile-firefox
     command: ["nodemon", "index.js"]
     environment:
     - "NODE_ENV=development"
     - "DEBUG='express:*'"
     volumes:
-    - ./backstopjs_firefox_worker:/home/node/app
+    - ./backstopjs_worker:/home/node/app
     restart: "no"
 
   backstopjs_worker_phantomjs:
