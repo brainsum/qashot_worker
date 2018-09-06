@@ -169,6 +169,8 @@ const parseResults = function parseResults(backstopConfig, backstopResults) {
         let failedCount = 0;
         let parsedResults = [];
 
+        const resultsBasePath = `http://${RESULTS_ENDPOINT_URL}/api/v1/reports/${workerConfig.browser}/${backstopConfig.id}`;
+
         backstopResults.tests.forEach(function(test) {
             const isSuccess = (test.status === 'pass');
             if (isSuccess) {
@@ -183,16 +185,27 @@ const parseResults = function parseResults(backstopConfig, backstopResults) {
                 'viewportLabel': test.pair.viewportLabel,
                 'success': isSuccess,
                 'reference': test.pair.reference,
+                'referenceUrl': null,
                 'test': test.pair.test,
+                'testUrl': null,
                 'diffImage': null,
+                'diffUrl': null,
                 'misMatchPercentage': null
             };
 
             if ('undefined' !== typeof test.pair.diff && 'undefined' !== typeof test.pair.diff.misMatchPercentage) {
                 currentResult.misMatchPercentage = test.pair.diff.misMatchPercentage;
             }
+
+            if (test.pair.reference) {
+                currentResult.referenceUrl = `${resultsBasePath}/${test.pair.reference.replace('../', '')}`;
+            }
+            if (test.pair.test) {
+                currentResult.testUrl = `${resultsBasePath}/${test.pair.test.replace('../', '')}`;
+            }
             if (test.pair.diffImage) {
                 currentResult.diffImage = test.pair.diffImage;
+                currentResult.diffUrl = `${resultsBasePath}/${test.pair.diffImage.replace('../', '')}`;
             }
             if (test.pair.error) {
                 currentResult.error = test.pair.error;
@@ -229,7 +242,7 @@ const parseResults = function parseResults(backstopConfig, backstopResults) {
                 'success': (failedCount === 0 && testCount > 0 && testCount === expectedTestCount)
             },
             'results': parsedResults,
-            'resultsUrl': `http://${RESULTS_ENDPOINT_URL}/api/v1/reports/${workerConfig.browser}/${backstopConfig.id}/html_report`
+            'resultsUrl': `${resultsBasePath}/html_report`
         };
         return resolve(finalResults);
     });
