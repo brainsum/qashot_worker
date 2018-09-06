@@ -125,6 +125,7 @@ function rabbitTestLoop() {
             let backstopConfig = message.test_config;
             // @fixme @todo: This is temporary:
             backstopConfig.id = String(backstopConfig.id);
+            backstopConfig.fileNameTemplate = '{scenarioLabel}_{selectorIndex}_{selectorLabel}_{viewportIndex}_{viewportLabel}';
 
             console.log('Data received. Config ID is: ' + backstopConfig.id);
             const templates = path.join(appRootDir, 'templates');
