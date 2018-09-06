@@ -184,11 +184,8 @@ const parseResults = function parseResults(backstopConfig, backstopResults) {
                 'scenarioLabel': test.pair.label,
                 'viewportLabel': test.pair.viewportLabel,
                 'success': isSuccess,
-                'reference': test.pair.reference,
                 'referenceUrl': null,
-                'test': test.pair.test,
                 'testUrl': null,
-                'diffImage': null,
                 'diffUrl': null,
                 'misMatchPercentage': null
             };
@@ -204,7 +201,6 @@ const parseResults = function parseResults(backstopConfig, backstopResults) {
                 currentResult.testUrl = `${resultsBasePath}/${test.pair.test.replace('../', '')}`;
             }
             if (test.pair.diffImage) {
-                currentResult.diffImage = test.pair.diffImage;
                 currentResult.diffUrl = `${resultsBasePath}/${test.pair.diffImage.replace('../', '')}`;
             }
             if (test.pair.error) {
