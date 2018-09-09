@@ -26,7 +26,7 @@ function sendResult(target, targetUrl, payload) {
             console.error(`Sending the results to ${target} failed. Error: ${error}`);
             return Promise.reject({
                 code: error.statusCode,
-                message: `Remote worker: ${error.message}`,
+                message: `Target (${target}): ${error.message}`,
                 error: error
             });
         });

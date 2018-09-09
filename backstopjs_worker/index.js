@@ -33,6 +33,7 @@ const fs = require('fs');
 const util = require('util');
 const workerConfig = require('./src/worker-config');
 const backstopApi = require('./src/backstop-api');
+const resultQueue = require('./src/client/result-queue');
 
 const MessageQueue = require('./src/message-queue');
 
@@ -74,8 +75,7 @@ function sendResults(results, message) {
     console.log(util.inspect(results));
     results.original_request = message;
 
-    // @todo: result_queue client, sendResult.
-    // return exposedMessageQueue.write(workerConfig.browser, JSON.stringify(results));
+    return resultQueue.sendResult(results);
 }
 
 /**
