@@ -195,6 +195,7 @@ function testValidationMiddleware(req, res, next) {
         console.error(`Request for unsupported "${browser}" browser.`);
     }
 
+    // @todo: Get request source, add as originUrl at top level.
     const mode = req.body.mode;
     if (!supportedModes.hasOwnProperty(mode)) {
         console.error(`Request for unsupported "${mode}" mode.`);

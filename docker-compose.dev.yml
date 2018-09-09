@@ -11,6 +11,17 @@ services:
     - ./frontend:/home/node/app
     restart: "no"
 
+  result_queue:
+    build:
+      context: ./result_queue
+    command: ["nodemon", "index.js"]
+    environment:
+    - "NODE_ENV=development"
+    - "DEBUG='express:*'"
+    volumes:
+    - ./result_queue:/home/node/app
+    restart: "no"
+
   backstopjs_worker_chrome:
     build:
       context: ./backstopjs_worker
@@ -63,7 +74,7 @@ services:
   internal_rabbitmq:
     restart: "no"
 
-  exposed_rabbitmq:
+  result_db:
     restart: "no"
 
   traefik:

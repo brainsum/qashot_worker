@@ -5,7 +5,6 @@ function preFlightCheck() {
         'WORKER_BROWSER',
         'WORKER_ENGINE',
         'INTERNAL_RABBITMQ_URL',
-        'EXPOSED_RABBITMQ_URL',
         'JWT_SECRET_KEY',
         'EXPOSED_PORT',
         'RESULTS_ENDPOINT_URL'
@@ -60,16 +59,7 @@ internalChannelConfigs[workerConfig.browser] = {
     'routing': `${workerConfig.browser}-tests`
 };
 
-let exposedChannelConfigs = {};
-exposedChannelConfigs[workerConfig.browser] = {
-    'name': workerConfig.browser,
-    'queue': `backstop-${workerConfig.browser}`,
-    'exchange': 'backstop-worker',
-    'routing': `${workerConfig.browser}-results`
-};
-
 const internalMessageQueue = new MessageQueue('InternalMQ', process.env.INTERNAL_RABBITMQ_URL, internalChannelConfigs);
-const exposedMessageQueue = new MessageQueue('ExposedMQ', process.env.EXPOSED_RABBITMQ_URL, exposedChannelConfigs);
 
 ensureDirectory(path.join(appRootDir, 'runtime'));
 ensureDirectory(path.join(appRootDir, 'runtime', workerConfig.browser));
@@ -83,7 +73,9 @@ ensureDirectory(path.join(appRootDir, 'runtime', workerConfig.browser));
 function sendResults(results, message) {
     console.log(util.inspect(results));
     results.original_request = message;
-    return exposedMessageQueue.write(workerConfig.browser, JSON.stringify(results));
+
+    // @todo: result_queue client, sendResult.
+    // return exposedMessageQueue.write(workerConfig.browser, JSON.stringify(results));
 }
 
 /**
@@ -257,17 +249,6 @@ async function run() {
 
     try {
         const message = await internalMessageQueue.waitChannels(5, 2000);
-        console.log(message);
-    }
-    catch (error) {
-        console.log(`Error! ${error.message}`);
-        // @todo: Exit 1.
-    }
-
-    await exposedMessageQueue.connect();
-
-    try {
-        const message = await exposedMessageQueue.waitChannels(5, 2000);
         console.log(message);
     }
     catch (error) {

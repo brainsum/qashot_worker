@@ -1,24 +1,13 @@
 'use strict';
 
-const TARGETS = {
-    drupal: 'http://drupal',
-    microsite: 'http://microsite'
-};
+// @todo: Maybe add target whitelist?
 
 const ADD_PATH = '/api/v1/result/add';
 
 const request = require('request-promise-native');
 
-function sendToTarget(target, payload) {
-    if (!TARGETS.hasOwnProperty(target)) {
-        return Promise.reject({
-            code: 400,
-            message: 'Invalid target.'
-        });
-    }
-
-    const currentTarget = TARGETS[target];
-    const currentUrl = `${currentTarget}${ADD_PATH}`;
+function sendResult(target, targetUrl, payload) {
+    const currentUrl = `${targetUrl}${ADD_PATH}`;
 
     const reqConfig = {
         url: currentUrl,
@@ -34,7 +23,7 @@ function sendToTarget(target, payload) {
             });
         })
         .catch(function (error) {
-            console.error(`Sending the test to the worker failed. Error: ${error}`);
+            console.error(`Sending the results to ${target} failed. Error: ${error}`);
             return Promise.reject({
                 code: error.statusCode,
                 message: `Remote worker: ${error.message}`,
@@ -44,5 +33,5 @@ function sendToTarget(target, payload) {
 }
 
 module.exports = {
-    sendToTarget
+    sendResult
 };

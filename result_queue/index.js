@@ -1,10 +1,10 @@
 'use strict';
 
 function preFlightCheck() {
+    // @todo: Update.
     const requiredEnvVars = [
         'JWT_SECRET_KEY',
         'EXPOSED_PORT',
-        'WORKER_URL',
         'DB_USER',
         'DB_PASSWORD',
         'PROJECT_ENVIRONMENT'

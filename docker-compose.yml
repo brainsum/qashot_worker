@@ -7,13 +7,11 @@ services:
     - "WORKER_BROWSER=chrome"
     - "WORKER_ENGINE=puppeteer"
     - "INTERNAL_RABBITMQ_URL=amqp://user:bitnami@internal_rabbitmq:${INTERNAL_RABBITMQ_PORT}"
-    - "EXPOSED_RABBITMQ_URL=amqp://user:bitnami@exposed_rabbitmq:${EXPOSED_RABBITMQ_PORT}"
     - "JWT_SECRET_KEY=${JWT_SECRET_KEY}"
     - "EXPOSED_PORT=10000"
     - "RESULTS_ENDPOINT_URL=${RESULTS_ENDPOINT_URL}"
     depends_on:
     - internal_rabbitmq
-    - exposed_rabbitmq
     restart: on-failure
     labels:
     - "traefik.enable=false"
@@ -24,7 +22,7 @@ services:
     - "traefik.docker.network=${PROJECT_NAME}_chrome_worker_internal_rabbitmq"
     networks:
     - chrome_worker_internal_rabbitmq
-    - chrome_worker_exposed_rabbitmq
+    - chrome_worker_result_queue
     - chrome_worker_monitoring
     volumes:
       - chrome_runtime:/home/node/app/runtime/chrome
@@ -41,13 +39,11 @@ services:
     - "WORKER_BROWSER=firefox"
     - "WORKER_ENGINE=slimerjs"
     - "INTERNAL_RABBITMQ_URL=amqp://user:bitnami@internal_rabbitmq:${INTERNAL_RABBITMQ_PORT}"
-    - "EXPOSED_RABBITMQ_URL=amqp://user:bitnami@exposed_rabbitmq:${EXPOSED_RABBITMQ_PORT}"
     - "JWT_SECRET_KEY=${JWT_SECRET_KEY}"
     - "EXPOSED_PORT=10100"
     - "RESULTS_ENDPOINT_URL=${RESULTS_ENDPOINT_URL}"
     depends_on:
     - internal_rabbitmq
-    - exposed_rabbitmq
     restart: on-failure
     labels:
     - "traefik.enable=false"
@@ -58,7 +54,7 @@ services:
     - "traefik.docker.network=${PROJECT_NAME}_firefox_worker_internal_rabbitmq"
     networks:
     - firefox_worker_internal_rabbitmq
-    - firefox_worker_exposed_rabbitmq
+    - firefox_worker_result_queue
     - firefox_worker_monitoring
     volumes:
     - firefox_runtime:/home/node/app/runtime/firefox
@@ -75,13 +71,11 @@ services:
     - "WORKER_BROWSER=phantomjs"
     - "WORKER_ENGINE=casper"
     - "INTERNAL_RABBITMQ_URL=amqp://user:bitnami@internal_rabbitmq:${INTERNAL_RABBITMQ_PORT}"
-    - "EXPOSED_RABBITMQ_URL=amqp://user:bitnami@exposed_rabbitmq:${EXPOSED_RABBITMQ_PORT}"
     - "JWT_SECRET_KEY=${JWT_SECRET_KEY}"
     - "EXPOSED_PORT=10200"
     - "RESULTS_ENDPOINT_URL=${RESULTS_ENDPOINT_URL}"
     depends_on:
     - internal_rabbitmq
-    - exposed_rabbitmq
     restart: on-failure
     labels:
     - "traefik.enable=false"
@@ -92,7 +86,7 @@ services:
     - "traefik.docker.network=${PROJECT_NAME}_phantomjs_worker_internal_rabbitmq"
     networks:
     - phantomjs_worker_internal_rabbitmq
-    - phantomjs_worker_exposed_rabbitmq
+    - phantomjs_worker_result_queue
     - phantomjs_worker_monitoring
     volumes:
     - phantomjs_runtime:/home/node/app/runtime/phantomjs
@@ -187,6 +181,8 @@ services:
     - "NODE_ENV=production"
     - "JWT_SECRET_KEY=${JWT_SECRET_KEY}"
     - "EXPOSED_PORT=9800"
+    - "DB_USER=${RESULT_DB_USER}"
+    - "DB_PASSWORD=${RESULT_DB_PASSWORD}"
     stop_grace_period: 10s
     healthcheck:
       test: ["CMD", "node", "healthcheck.js"]
@@ -194,7 +190,14 @@ services:
       timeout: 10s
       retries: 5
     restart: on-failure
-    # @todo: Networks
+    depends_on:
+    - result_db
+    networks:
+    - exposed
+    - result_database
+    - chrome_worker_result_queue
+    - firefox_worker_result_queue
+    - phantomjs_worker_result_queue
     labels:
     - "traefik.enable=true"
     - "traefik.backend=result_queue"
@@ -202,41 +205,21 @@ services:
     - "traefik.port=9800"
     - "traefik.docker.network=${PROJECT_NAME}_result_queue"
 
-   # @todo: Add.
-#  result_db:
-#    image: postgres
-
-  exposed_rabbitmq:
-    image: bitnami/rabbitmq:3.7.7
-    environment:
-    - "RABBITMQ_USERNAME=user"
-    - "RABBITMQ_PASSWORD=bitnami"
-    - "RABBITMQ_VHOST=/"
-    - "RABBITMQ_NODE_TYPE=stats"
-    - "RABBITMQ_NODE_PORT_NUMBER=${EXPOSED_RABBITMQ_PORT}"
-    - "RABBITMQ_MANAGER_PORT_NUMBER=1${EXPOSED_RABBITMQ_PORT}"
-    - "RABBITMQ_DISK_FREE_LIMIT={mem_relative, 1.0}"
-    - "RABBITMQ_ULIMIT_NOFILES=65536"
-    volumes:
-    - ./runtime/exposed_rabbitmq_data:/bitnami
+  result_db:
+    image: bitnami/postgresql:10.5.0
+    container_name: "${PROJECT_NAME}_result_db"
     stop_grace_period: 10s
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:1${EXPOSED_RABBITMQ_PORT}"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
     restart: on-failure
+    environment:
+    - "POSTGRESQL_USERNAME=${RESULT_DB_USER}"
+    - "POSTGRESQL_PASSWORD=${RESULT_DB_PASSWORD}"
+    - "POSTGRESQL_DATABASE=result_db"
+    volumes:
+    - result_db_data:/bitnami
     networks:
-    - exposed
-    - chrome_worker_exposed_rabbitmq
-    - firefox_worker_exposed_rabbitmq
-    - phantomjs_worker_exposed_rabbitmq
+    - result_database
     labels:
     - "traefik.enable=false"
-    - "traefik.port=${EXPOSED_RABBITMQ_PORT}"
-    - "traefik.backend=exposed_rabbitmq"
-    - "traefik.frontend.rule=Host:exposed-rabbitmq.${PROJECT_BASE_URL}"
-    - "traefik.docker.network=${PROJECT_NAME}_exposed"
 
   # Other.
   traefik:
@@ -250,12 +233,13 @@ services:
     - frontend
     - exposed
     - frontend_internal_rabbitmq
-    - chrome_worker_exposed_rabbitmq
-    - firefox_worker_exposed_rabbitmq
-    - phantomjs_worker_exposed_rabbitmq
+    - chrome_worker_result_queue
+    - firefox_worker_result_queue
+    - phantomjs_worker_result_queue
     - chrome_worker_internal_rabbitmq
     - firefox_worker_internal_rabbitmq
     - phantomjs_worker_internal_rabbitmq
+    - result_database
     - chrome_worker_monitoring
     - firefox_worker_monitoring
     - phantomjs_worker_monitoring
@@ -272,12 +256,13 @@ networks:
   frontend: {}
   exposed: {}
   frontend_internal_rabbitmq: {}
-  chrome_worker_exposed_rabbitmq: {}
-  firefox_worker_exposed_rabbitmq: {}
-  phantomjs_worker_exposed_rabbitmq: {}
+  chrome_worker_result_queue: {}
+  firefox_worker_result_queue: {}
+  phantomjs_worker_result_queue: {}
   chrome_worker_internal_rabbitmq: {}
   firefox_worker_internal_rabbitmq: {}
   phantomjs_worker_internal_rabbitmq: {}
+  result_database: {}
   frontend_monitoring: {}
   chrome_worker_monitoring: {}
   firefox_worker_monitoring: {}
@@ -287,3 +272,4 @@ volumes:
   chrome_runtime: {}
   phantomjs_runtime: {}
   firefox_runtime: {}
+  result_db_data: {}

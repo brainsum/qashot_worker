@@ -4,7 +4,8 @@
 
 
 const db = require('../database');
-const web = require('../client/microsite-web');
+// const web = require('../client/microsite-web');
+const targetClient = require('../client/target');
 
 const ResultModel = db.models.ResultModel;
 
@@ -15,9 +16,9 @@ function delay(t, v) {
 }
 
 const loop = async function loop() {
-    let item = undefined;
+    let result = undefined;
     try {
-        item = await ResultModel.findOne({
+        result = await ResultModel.findOne({
             where: {
                 status: {
                     [db.Op.not]: 'ok'
@@ -37,50 +38,36 @@ const loop = async function loop() {
         return loop();
     }
 
-    if (item === null) {
+    if (result === null) {
         console.log('There are no items in the queue that should be sent.');
         await delay(3000);
         return await loop();
     }
+    
+    let resultToUpdate = result.get({ plain: true });
+    const target = resultToUpdate.rawData.original_request.origin;
+    const targetUrl = resultToUpdate.rawData.original_request.originUrl;
 
-    let webResponse = undefined;
-    try {
-        webResponse = await web.getTest(item.uuid);
-    }
-    catch (error) {
-        console.error(error);
-        await delay(3000);
-        return loop();
-    }
-
-    if ('undefined' === webResponse.test) {
-        console.error('The web service did not return a test.');
-        await delay(3000);
-        return loop();
-    }
-
-    const test = webResponse.test;
-    let updatedItem = item.get({ plain: true });
     let response = undefined;
     try {
-        response = await worker.addTest(test);
-        updatedItem.status = 'ok';
-        updatedItem.statusMessage = 'Sent to the remote worker.';
-        updatedItem.sentAt = new Date();
+        response = await targetClient.sendResult(target, targetUrl, result);
+        resultToUpdate.status = 'ok';
+        resultToUpdate.statusMessage = 'Sent to the remote worker.';
+        resultToUpdate.sentAt = new Date();
         console.log('Test sent to the worker.');
     }
     catch (error) {
-        updatedItem.status = 'error';
-        updatedItem.statusMessage = error.message;
+        resultToUpdate.status = 'error';
+        resultToUpdate.statusMessage = error.message;
         // Wait before re-try.
-        updatedItem.waitUntil = new Date(Date.now() + (1000 * 30));
+        resultToUpdate.waitUntil = new Date(Date.now() + (1000 * 30));
     }
 
-    let update = undefined;Key
+    let update = undefined;
     try {
-        update = ResultModel.update(updatedItem, {
+        update = ResultModel.update(resultToUpdate, {
             where: {
-                uuid: updatedItem.uuid
+                uuid: resultToUpdate.uuid
             }
         });
         console.log('Item updated.');
