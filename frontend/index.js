@@ -273,8 +273,8 @@ function resultsMiddleware(req, res, next) {
     next();
 }
 
-app.use('/api/v1/reports/:browser/:id', resultsMiddleware);
-app.use(`/api/v1/reports`, serveStatic(path.join(__dirname, 'runtime')));
+app.use('/reports/:browser/:id', resultsMiddleware);
+app.use(`/reports`, serveStatic(path.join(__dirname, 'runtime')));
 // @todo: End of "Remove this".
 
 let server = undefined;

@@ -169,7 +169,7 @@ const parseResults = function parseResults(backstopConfig, backstopResults) {
         let failedCount = 0;
         let parsedResults = [];
 
-        const resultsBasePath = `http://${RESULTS_ENDPOINT_URL}/api/v1/reports/${workerConfig.browser}/${backstopConfig.id}`;
+        const resultsBasePath = `http://${RESULTS_ENDPOINT_URL}/reports/${workerConfig.browser}/${backstopConfig.id}`;
 
         backstopResults.tests.forEach(function(test) {
             const isSuccess = (test.status === 'pass');
