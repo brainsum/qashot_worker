@@ -181,6 +181,31 @@ services:
       timeout: 10s
       retries: 5
 
+  result_queue:
+    image: brainsum/qashot_worker_result_queue:0.1.0
+    environment:
+    - "NODE_ENV=production"
+    - "JWT_SECRET_KEY=${JWT_SECRET_KEY}"
+    - "EXPOSED_PORT=9800"
+    stop_grace_period: 10s
+    healthcheck:
+      test: ["CMD", "node", "healthcheck.js"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: on-failure
+    # @todo: Networks
+    labels:
+    - "traefik.enable=true"
+    - "traefik.backend=result_queue"
+    - "traefik.frontend.rule=Host:result-queue.${PROJECT_BASE_URL}"
+    - "traefik.port=9800"
+    - "traefik.docker.network=${PROJECT_NAME}_result_queue"
+
+   # @todo: Add.
+#  result_db:
+#    image: postgres
+
   exposed_rabbitmq:
     image: bitnami/rabbitmq:3.7.7
     environment:
