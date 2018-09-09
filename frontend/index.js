@@ -167,53 +167,80 @@ function verifyTestConfig(config) {
     return errors;
 }
 
+// @todo: Use JSON-schema instead.
+function verifyTestRequest(body) {
+    let errors = [];
+
+    if (!body.hasOwnProperty('browser')) {
+        errors.push('The browser field is missing.');
+    }
+    else if (!supportedBrowsers.includes(body.browser)) {
+        errors.push(`The requested browser (${body.browser}) is not supported.`);
+    }
+
+    if (!body.hasOwnProperty('mode')) {
+        errors.push('The mode field is missing.');
+    }
+    else if (!supportedModes.hasOwnProperty(body.mode)) {
+        errors.push(`The requested mode (${body.mode}) is not supported.`);
+    }
+
+    if (supportedModes[body.mode].length !== 0) {
+        if (!body.hasOwnProperty('stage')) {
+            errors.push('The stage field is missing.');
+        }
+        else if (!supportedModes[body.mode].includes(body.mode)) {
+            errors.push(`The requested mode (${body.mode}) does not support the requested stage (${body.stage}).`);
+        }
+    }
+    // @todo: Maybe check for test/mode validity.
+    // @example: A/B tests should have both the test and reference URL fields.
+
+    // @todo: Check if valid uuid/v4.
+    if (!body.hasOwnProperty('uuid')) {
+        errors.push('The uuid field is missing.');
+    }
+
+    if (!body.hasOwnProperty('origin')) {
+        errors.push('The origin field is missing.');
+    }
+
+    if (!body.hasOwnProperty('environment')) {
+        errors.push('The environment field is missing.');
+    }
+
+    if ('undefined' === typeof body.test_config || null === body.test_config || !body.test_config) {
+        errors.push('The test configuration is empty.');
+    }
+    else {
+        // @todo: merge errors
+        errors = verifyTestConfig(body.test_config);
+    }
+
+    return errors;
+}
+
 function testValidationMiddleware(req, res, next) {
     if (undefined === req.body) { // || req.body.length === 0
         return res.status(400).json({message: 'Empty request.'});
     }
 
-    const testConfig = req.body.test_config;
-    // @todo: testConfig should be in req.body.test
-    // Body should contain the following:
-    // Run type: A/B or before-after
-    // @todo: Maybe infer run type from tests.
-    // If both ref/test urls are added and they are not the same: A/B
-    // Otherwise, B/A.
-    const configErrors = verifyTestConfig(testConfig);
-    if (configErrors.length !== 0) {
+    const reqErrors = verifyTestRequest(req.body);
+    if (reqErrors.length !== 0) {
         return res.status(400).json({
-            message: 'The config is not a valid test config.',
-            errors: configErrors
+            message: 'Invalid request.',
+            errors: reqErrors
         });
     }
 
-    // Note: A standard backstop config includes an "engine" field. We don't care about that,
-    // it's up to the  worker to update it according to its configuration.
-    // @todo: Expose endpoint so others can query the "supported" lists.
-    const browser = req.body.browser;
-    if (!supportedBrowsers.includes(browser)) {
-        console.error(`Request for unsupported "${browser}" browser.`);
-    }
-
-    // @todo: Get request source, add as originUrl at top level.
-    const mode = req.body.mode;
-    if (!supportedModes.hasOwnProperty(mode)) {
-        console.error(`Request for unsupported "${mode}" mode.`);
-    }
-
+    // @todo: Expose endpoint so others can query the "supported browser" lists.
     // @problem: Before/After needs to be stateful, currently this is not really the case.
     // @todo: Figure out how to make this work. Maybe add a database?
-    const stage = req.body.stage;
-    if (supportedModes[mode].length > 0 && !supportedModes[mode].includes(stage)) {
-        console.error(`Request for unsupported "${stage}" stage.`);
-    }
-
     next();
 }
 
-/**
- * @todo: Use a JSON Validator lib.
- */
+// @todo: Add middleware for getting request source URL, add as originUrl at top level.
+// @todo: Use a JSON Validator lib.
 app.use('/api/v1/test/add', testValidationMiddleware);
 
 // @todo: Implement bulk-add?
@@ -222,14 +249,7 @@ app.post('/api/v1/test/add', asyncHandlerMiddleware(async function (req, res) {
     const testConfig = req.body.test_config;
     // Note: A standard backstop config includes an "engine" field. We don't care about that,
     // it's up to the  worker to update it according to its configuration.
-    // @todo: Expose endpoint so others can query the "supported" lists.
     const browser = req.body.browser;
-    const mode = req.body.mode;
-    // @problem: Before/After needs to be stateful, currently this is not really the case.
-    // @todo: Figure out how to make this work. Maybe add a database?
-    const stage = req.body.stage;
-
-    // @todo: Validate the whole request.
     try {
         await rabbitWriteTest(browser, req.body);
         return res.status(200).json({
@@ -239,7 +259,7 @@ app.post('/api/v1/test/add', asyncHandlerMiddleware(async function (req, res) {
     }
     catch (error) {
         console.log(error);
-        return res.status(400).json({
+        return res.status(500).json({
             message: 'Could not add test to the queue.',
             test: testConfig,
             error: error
