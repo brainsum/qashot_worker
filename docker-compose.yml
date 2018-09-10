@@ -138,6 +138,7 @@ services:
     - "EXPOSED_PORT=9900"
     depends_on:
     - internal_rabbitmq
+    - result_queue
     restart: on-failure
     labels:
     - "traefik.enable=true"
@@ -147,6 +148,7 @@ services:
     - "traefik.docker.network=${PROJECT_NAME}_frontend"
     networks:
     - frontend
+    - frontend_result_queue
     - frontend_internal_rabbitmq
     - frontend_monitoring
     volumes:
@@ -194,7 +196,7 @@ services:
     depends_on:
     - result_db
     networks:
-    - exposed
+    - frontend_result_queue
     - result_database
     - chrome_worker_result_queue
     - firefox_worker_result_queue
@@ -204,7 +206,7 @@ services:
     - "traefik.backend=result_queue"
     - "traefik.frontend.rule=Host:results.${PROJECT_BASE_URL}"
     - "traefik.port=9800"
-    - "traefik.docker.network=${PROJECT_NAME}_result_queue"
+    - "traefik.docker.network=${PROJECT_NAME}_frontend_result_queue"
 
   result_db:
     image: bitnami/postgresql:10.5.0
@@ -232,7 +234,7 @@ services:
     - "443:443"
     networks:
     - frontend
-    - exposed
+    - frontend_result_queue
     - frontend_internal_rabbitmq
     - chrome_worker_result_queue
     - firefox_worker_result_queue
@@ -255,7 +257,7 @@ services:
 
 networks:
   frontend: {}
-  exposed: {}
+  frontend_result_queue: {}
   frontend_internal_rabbitmq: {}
   chrome_worker_result_queue: {}
   firefox_worker_result_queue: {}

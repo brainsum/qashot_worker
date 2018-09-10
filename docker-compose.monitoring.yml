@@ -13,7 +13,7 @@ services:
     - prometheus_data:/prometheus
     - ./monitoring/prometheus/:/etc/prometheus/
     networks:
-    - exposed
+    - frontend_result_queue
     - monitoring
     - chrome_worker_monitoring
     - firefox_worker_monitoring
