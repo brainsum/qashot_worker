@@ -42,7 +42,9 @@ router.post('/fetch', asyncHandler(async function fetchResultsHandler(req, res, 
                 testUuid: {
                     [db.Op.in]: testUuids
                 },
-                sentAt: null
+                sentAt: {
+                    [db.Op.is]: null
+                }
             },
             limit: 20
         });
