@@ -36,11 +36,13 @@ router.post('/fetch', asyncHandler(async function fetchResultsHandler(req, res, 
     try {
         results = await ResultModel.findAll({
             // @todo: createdAt : Fetch only the latest for each UUID?
+            // @todo: Allow fetching every result again.
             where: {
                 "rawData.original_request.origin": origin,
                 testUuid: {
                     [db.Op.in]: testUuids
-                }
+                },
+                sentAt: null
             },
             limit: 20
         });
