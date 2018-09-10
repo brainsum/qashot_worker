@@ -29,8 +29,6 @@ const terminus = require('@godaddy/terminus');
 const asyncHandlerMiddleware = require('express-async-handler');
 const jwtHandlerMiddleware = require('express-jwt');
 
-const fs = require('fs');
-const path = require('path');
 const url = require('url');
 
 const internalMessageQueue = require('./src/message-queue');
@@ -124,15 +122,17 @@ app.use(jwtHandlerMiddleware({
 // jwt().unless({path: [/cica]})
 */
 // @todo: Implement JWT auth.
+// @todo: Move to src/middleware
 app.use(function (req, res, next) {
     let date = new Date().toISOString();
     console.log(`Incoming request: ${req.method} ${req.path} at ${date}`);
     next();
 });
 
-app.get('/', function (req, res) {
-  return res.status(200).json({ message: 'General Kenobi.'});
-});
+// @todo: Finish refactoring:
+// - @todo: bring over MQ abstraction from workers
+// - @todo: Move test endpoints under src/route/api/v1/test
+app.use('/', require('./src/route'));
 
 /**
  * Check a test config for issues.
@@ -266,36 +266,6 @@ app.post('/api/v1/test/add', asyncHandlerMiddleware(async function (req, res) {
         });
     }
 }));
-
-// @todo: Remove this, debug only.
-const serveStatic = require('serve-static');
-
-function resultsMiddleware(req, res, next) {
-    if ('GET' !== req.method) {
-        return res.end(`${req.method} method not supported.`);
-    }
-
-    const browser = req.params.browser;
-    const id = String(req.params.id);
-
-    if (!supportedBrowsers.includes(browser)) {
-        return res.status(400).send('There was an error while handling your request, please try again later.');
-    }
-
-    if (!id.match(/^[a-zA-Z0-9-_]+$/g)) {
-        return res.status(400).send('There was an error while handling your request, please try again later.');
-    }
-
-    if (!fs.existsSync(path.join(__dirname, 'runtime', browser, id, 'html_report', 'index.html'))) {
-        return res.status(400).send('There was an error while handling your request, please try again later.');
-    }
-
-    next();
-}
-
-app.use('/reports/:browser/:id', resultsMiddleware);
-app.use(`/reports`, serveStatic(path.join(__dirname, 'runtime')));
-// @todo: End of "Remove this".
 
 let server = undefined;
 
