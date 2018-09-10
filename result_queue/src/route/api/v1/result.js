@@ -11,6 +11,7 @@ const db = require('../../../database');
  */
 const ResultModel = db.models.Result;
 
+// @todo: Add results endpoint for fetching a single result, not a bunch of them.
 router.post('/fetch', asyncHandler(async function fetchResultsHandler(req, res, next) {
     if ('undefined' === typeof req.body) {
         return res.status(400).json({
