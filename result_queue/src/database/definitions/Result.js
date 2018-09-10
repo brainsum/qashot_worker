@@ -18,6 +18,15 @@ module.exports = {
             allowNull: false,
             unique: true
         },
+        testUuid: {
+            type: DataTypes.UUID,
+            allowNull: false
+        },
+        createdAt: {
+            type: DataTypes.DATE,
+            allowNull: false,
+            defaultValue: DataTypes.NOW
+        },
         status: {
             type: DataTypes.ENUM('waiting', 'ok', 'error'),
             allowNull: false,
