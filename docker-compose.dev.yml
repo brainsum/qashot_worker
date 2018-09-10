@@ -18,6 +18,7 @@ services:
     environment:
     - "NODE_ENV=development"
     - "DEBUG='express:*'"
+    - "PROJECT_ENVIRONMENT=development"
     volumes:
     - ./result_queue:/home/node/app
     restart: "no"
