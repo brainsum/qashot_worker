@@ -200,7 +200,7 @@ services:
     - firefox_worker_result_queue
     - phantomjs_worker_result_queue
     labels:
-    - "traefik.enable=true"
+    - "traefik.enable=false"
     - "traefik.backend=result_queue"
     - "traefik.frontend.rule=Host:results.${PROJECT_BASE_URL}"
     - "traefik.port=9800"
