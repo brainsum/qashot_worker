@@ -63,21 +63,24 @@ router.post('/fetch', asyncHandler(async function fetchResultsHandler(req, res, 
         };
     });
 
-    try {
-        let update = ResultModel.update({
-            status: 'ok',
-            statusMessage: `Fetched by consumer (${origin}).`,
-            sentAt: new Date()
-        }, {
-            where: {
-                uuid: {
-                    [db.Op.in]: Object.keys(rowsKeyed)
+    const resultUuids = Object.keys(rowsKeyed);
+    if (null !== resultUuids && 'undefined' !== typeof resultUuids && resultUuids.length > 0) {
+        try {
+            let update = ResultModel.update({
+                status: 'ok',
+                statusMessage: `Fetched by consumer (${origin}).`,
+                sentAt: new Date()
+            }, {
+                where: {
+                    uuid: {
+                        [db.Op.in]: resultUuids
+                    }
                 }
-            }
-        });
-    }
-    catch (error) {
-        console.error(error);
+            });
+        }
+        catch (error) {
+            console.error(error);
+        }
     }
 
     return res.status(200).json({
