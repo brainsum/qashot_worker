@@ -212,7 +212,7 @@ const parseResults = function parseResults(backstopConfig, backstopResults) {
 
         const viewportCount = backstopConfig.viewports.length;
         const scenarioCount = backstopConfig.scenarios.length;
-        const expectedTestCount = viewportCount + scenarioCount;
+        const expectedTestCount = viewportCount * scenarioCount;
         const testCount = passedCount + failedCount;
         const passRate = (testCount === 0) ? 0 : passedCount / testCount;
 
