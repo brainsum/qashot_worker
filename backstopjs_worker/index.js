@@ -88,6 +88,7 @@ function pushResults(backstopConfig, message) {
     return backstopApi.loadResults(backstopConfig.paths.html_report, backstopConfig.id).then(loadedResults => {
         return backstopApi.parseResults(backstopConfig, loadedResults);
     })
+    // @fixme: @todo: In case of errors, send them to the result_queue, too.
         .then(parsedResults => {
             return sendResults(parsedResults, message);
         })
