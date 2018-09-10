@@ -19,7 +19,6 @@ Docker and Docker-compose with docker-compose.yml v3 support.
 - Copy ```.env.example``` as ```.env``` and update the keys for your environment
 - Create a ```runtime``` folder in the project root
 - Create an ```internal_rabbitmq_data``` folder with ```user:group -> 1001:1001``` in the project root ```runtime``` folder
-- Create an ```exposed_rabbitmq_data``` folder with ```user:group -> 1001:1001``` in the project root ```runtime``` folder
 - Copy ```monitoring/alertmanager/config.example.yml``` as ```monitoring/alertmanager/config.yml``` and update the values
 - Use the ```docker.deploy.prod.sh``` script
     - *Note*: This is going to rebuild the images. This might take several minutes and use lots of resources.
