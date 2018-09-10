@@ -33,7 +33,7 @@ const terminus = require('@godaddy/terminus');
 const robots = require('express-robots-txt');
 // Custom.
 const db = require('./src/database');
-const resultProcessor = require('./src/lib/result-processor');
+// const resultProcessor = require('./src/lib/result-processor');
 
 function delay(t, v) {
     return new Promise(function(resolve) {
@@ -144,7 +144,7 @@ const run = async () => {
         terminus(server, terminusOptions);
     });
 
-    const loopMessage = resultProcessor.loop();
+    // const loopMessage = resultProcessor.loop();
 
     return 'Running.'
 };
