@@ -27,6 +27,7 @@
     "amqplib": "^0.5.2",
     "backstopjs": "^3.5.10",
     "express": "^4.16.3",
+    "request-promise-native": "^1.0.5",
     "slimerjs": "^0.10.3"
   },
   "devDependencies": {
