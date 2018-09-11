@@ -33,9 +33,7 @@ RUN \
 #    ln -s /opt/firefox/firefox /usr/bin/firefox && \
     # Tini.
     wget https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini -O /sbin/tini && \
-    chmod +x /sbin/tini
-
-RUN \
+    chmod +x /sbin/tini && \
     apt-get update && apt-get install -y --no-install-recommends \
         xvfb \
         xauth \
