@@ -1,7 +1,7 @@
 version: "3.7"
 services:
   backstopjs_worker_chrome:
-    image: brainsum/qashot_worker_backstopjs_chrome:0.5.0
+    image: brainsum/qashot_worker_backstopjs_chrome:0.8.0
     environment:
     - "NODE_ENV=production"
     - "WORKER_BROWSER=chrome"
@@ -28,12 +28,12 @@ services:
       - chrome_runtime:/home/node/app/runtime/chrome
     healthcheck:
       test: ["CMD", "node", "healthcheck.js"]
-      interval: 30s
+      interval: 10s
       timeout: 10s
       retries: 5
 
   backstopjs_worker_firefox:
-    image: brainsum/qashot_worker_backstopjs_firefox:0.5.1
+    image: brainsum/qashot_worker_backstopjs_firefox:0.8.0
     environment:
     - "NODE_ENV=production"
     - "WORKER_BROWSER=firefox"
@@ -60,12 +60,12 @@ services:
     - firefox_runtime:/home/node/app/runtime/firefox
     healthcheck:
       test: ["CMD", "node", "healthcheck.js"]
-      interval: 30s
+      interval: 10s
       timeout: 10s
       retries: 5
 
   backstopjs_worker_phantomjs:
-    image: brainsum/qashot_worker_backstopjs_phantomjs:0.5.1
+    image: brainsum/qashot_worker_backstopjs_phantomjs:0.8.0
     environment:
     - "NODE_ENV=production"
     - "WORKER_BROWSER=phantomjs"
@@ -92,7 +92,7 @@ services:
     - phantomjs_runtime:/home/node/app/runtime/phantomjs
     healthcheck:
       test: ["CMD", "node", "healthcheck.js"]
-      interval: 30s
+      interval: 10s
       timeout: 10s
       retries: 5
 
@@ -112,7 +112,7 @@ services:
     stop_grace_period: 10s
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:1${INTERNAL_RABBITMQ_PORT}"]
-      interval: 30s
+      interval: 10s
       timeout: 10s
       retries: 5
     restart: on-failure
@@ -129,7 +129,7 @@ services:
     # - "traefik.frontend.rule=Host:internal-rabbitmq.${PROJECT_BASE_URL}"
 
   frontend:
-    image: brainsum/qashot_worker_frontend:0.5.0
+    image: brainsum/qashot_worker_frontend:0.8.0
     environment:
     - "NODE_ENV=production"
     - "INTERNAL_RABBITMQ_URL=amqp://user:bitnami@internal_rabbitmq:${INTERNAL_RABBITMQ_PORT}"
@@ -173,7 +173,7 @@ services:
     stop_grace_period: 10s
     healthcheck:
       test: ["CMD", "node", "healthcheck.js"]
-      interval: 30s
+      interval: 10s
       timeout: 10s
       retries: 5
 
@@ -189,8 +189,8 @@ services:
     stop_grace_period: 10s
     healthcheck:
       test: ["CMD", "node", "healthcheck.js"]
-      interval: 30s
-      timeout: 10s
+      interval: 10s
+      timeout: 3s
       retries: 5
     restart: on-failure
     depends_on:
@@ -226,7 +226,7 @@ services:
 
   # Other.
   traefik:
-    image: traefik:v1.6.5-alpine # The official Traefik docker image
+    image: traefik:v1.6.6-alpine # The official Traefik docker image
     container_name: "${PROJECT_NAME}_traefik"
     restart: on-failure
     ports:
