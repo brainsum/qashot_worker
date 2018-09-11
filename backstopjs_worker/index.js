@@ -125,10 +125,8 @@ function rabbitTestLoop() {
             const currentRuntime = path.join(appRootDir, 'runtime', workerConfig.browser, backstopConfig.id);
             ensureDirectory(currentRuntime);
 
-            backstopConfig.scenarios.forEach(function (scenario) {
-                scenario.onBeforeScript = 'onBefore.js';
-                scenario.onReadyScript = 'onReady.js';
-            });
+            backstopConfig.onBeforeScript = 'onBefore.js';
+            backstopConfig.onReadyScript = 'onReady.js';
 
             backstopConfig.paths = {
                 "engine_scripts": (workerConfig.browser === 'phantomjs') ? path.join('templates', workerConfig.scriptsFolder) : path.join(templates, workerConfig.scriptsFolder),
