@@ -125,6 +125,11 @@ function rabbitTestLoop() {
             const currentRuntime = path.join(appRootDir, 'runtime', workerConfig.browser, backstopConfig.id);
             ensureDirectory(currentRuntime);
 
+            backstopConfig.scenarios.forEach(function (scenario) {
+                scenario.onBeforeScript = 'onBefore.js';
+                scenario.onReadyScript = 'onReady.js';
+            });
+
             backstopConfig.paths = {
                 "engine_scripts": (workerConfig.browser === 'phantomjs') ? path.join('templates', workerConfig.scriptsFolder) : path.join(templates, workerConfig.scriptsFolder),
                 "bitmaps_reference": path.join(currentRuntime, "reference"),
@@ -132,6 +137,20 @@ function rabbitTestLoop() {
                 "html_report": path.join(currentRuntime, "html_report"),
                 "ci_report": path.join(currentRuntime, "ci_report")
             };
+
+            if (!backstopConfig.hasOwnProperty('resembleOutputOptions')) {
+                backstopConfig.resembleOutputOptions = {
+                    "errorColor": {
+                        "red": 255,
+                          "green": 0,
+                          "blue": 255
+                    },
+                    "errorType": "movement",
+                      "transparency": "0.3",
+                      "largeImageThreshold": "1200",
+                      "useCrossOrigin": true
+                };
+            }
 
             Object.keys(backstopConfig.paths).forEach(function (key) {
                 ensureDirectory(backstopConfig.paths[key]);
