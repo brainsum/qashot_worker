@@ -1,9 +1,5 @@
 'use strict';
 
-const path = require('path');
-const fs = require('fs');
-const appRootDir = require('./app-root');
-
 function loadWorkerConfig() {
     const supportedBrowsers = [
         'chrome',
@@ -12,8 +8,7 @@ function loadWorkerConfig() {
     ];
 
     if (supportedBrowsers.includes(process.env.WORKER_BROWSER)) {
-        const filename = `worker-config.${process.env.WORKER_BROWSER}.json`;
-        return JSON.parse(fs.readFileSync(path.join(appRootDir, filename), 'utf8'));
+        return require(`../config/worker/${process.env.WORKER_BROWSER}`);
     }
 
     throw new Error('Could not load configuration for the worker.');
