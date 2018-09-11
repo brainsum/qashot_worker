@@ -27,7 +27,7 @@ services:
     - "traefik.docker.network=${PROJECT_NAME}_monitoring"
 
   grafana:
-    image: grafana/grafana:5.2.2
+    image: grafana/grafana:5.2.4
     container_name: "${PROJECT_NAME}_grafana"
     restart: always
     depends_on:
@@ -47,7 +47,7 @@ services:
     - "traefik.docker.network=${PROJECT_NAME}_monitoring"
 
   cadvisor:
-    image: google/cadvisor:v0.30.2
+    image: google/cadvisor:v0.31.0
     container_name: "${PROJECT_NAME}_cadvisor"
     restart: always
     ports:
