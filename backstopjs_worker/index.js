@@ -177,8 +177,14 @@ function rabbitTestLoop() {
                 .finally(async function () {
                     console.timeEnd('rabbitTestLoop');
                     console.log(`Test ${backstopConfig.id} ended.`);
-                    const results = await pushResults(backstopConfig, message);
-                    console.log(`Results: ${results}`);
+                    try {
+                        const results = await pushResults(backstopConfig, message);
+                        console.log(`Results: ${results}`);
+                    }
+                    catch (error) {
+                        console.log(error);
+                    }
+
                     rabbitTestLoop();
                 });
         })
