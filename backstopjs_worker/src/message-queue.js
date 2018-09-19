@@ -40,6 +40,14 @@ module.exports = class MessageQueue {
             console.log(`${this.queueId}:: Trying to publish to channel "${channelName}".`);
             this.channels[channelName].publish(this.channelConfigs[channelName].exchange, this.channelConfigs[channelName].routing, Buffer.from(message), {
                 contentType: 'application/json'
+            }, function publishConfirmCallback(err, ok) {
+                if (err !== null) {
+                    console.error('Message nacked,');
+
+                    return;
+                }
+
+                console.log('Message acked.');
             });
             console.log(`${this.queueId}:: Writing to MQ; ${message} : Message sent at ${new Date()}`);
             return resolve(message);
@@ -125,7 +133,7 @@ module.exports = class MessageQueue {
             /**
              * @type {Channel}
              */
-            const channel = await this.connection.createChannel();
+            const channel = await this.connection.createConfirmChannel();
 
             await channel.assertExchange(config.exchange, 'direct', {});
             await channel.assertQueue(config.queue, {});
