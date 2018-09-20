@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "0.5.0",
+  "version": "0.7.0",
   "description": "Frontend service for the QAShot Worker project.",
   "main": "index.js",
   "engines": {
@@ -23,7 +23,7 @@
   },
   "homepage": "https://github.com/brainsum/qashot_worker#readme",
   "dependencies": {
-    "@godaddy/terminus": "^2.4.1",
+    "@godaddy/terminus": "^2.4.2",
     "amqplib": "^0.5.2",
     "body-parser": "^1.18.3",
     "express": "^4.16.3",
@@ -35,7 +35,7 @@
     "serve-static": "^1.13.2"
   },
   "devDependencies": {
-    "eslint": "^5.5.0",
+    "eslint": "^5.6.0",
     "eslint-plugin-node": "^7.0.1",
     "eslint-plugin-security": "^1.4.0",
     "nodemon": "^1.18.4"
