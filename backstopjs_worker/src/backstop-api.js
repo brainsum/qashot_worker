@@ -2,7 +2,7 @@
 
 const path = require('path');
 const fs = require('fs');
-const childProcess = require('child_process');
+const { spawn } = require('promisify-child-process');
 
 const backstop = require('backstopjs');
 
@@ -26,8 +26,24 @@ function loadConfig(configPath) {
     return JSON.parse(fs.readFileSync(configPath, 'utf8'));
 }
 
+function zeroPad(number, length = 2) {
+    let str = '' + number;
+    while (str.length < length) {
+        str = '0' + str;
+    }
+
+    return str;
+}
+
+function dateToDirname() {
+    const date = new Date();
+    return `${date.getFullYear()}${zeroPad(date.getMonth() + 1)}${zeroPad(date.getDay())}-${zeroPad(date.getHours())}${zeroPad(date.getMinutes())}${zeroPad(date.getSeconds())}`;
+}
+
 // @todo: Temporary solution. When firefox works without xvfb, remove this.
 if ('firefox' === workerConfig.browser) {
+
+    let logFileDate = null;
 
     /**
      *
@@ -35,26 +51,56 @@ if ('firefox' === workerConfig.browser) {
      * @returns {Promise<*>}
      */
     commands.reference = async function executeReferenceChildProcess(configPath) {
-        const execSyncConfig = {
-            stdio: 'inherit',
+        if (null === logFileDate) {
+            logFileDate = dateToDirname();
+        }
+        console.log('Running the reference command.');
+        const logFileDir = path.join(path.dirname(configPath), 'logs');
+        const outLogFileName = `${logFileDate}.reference.stdout.logs`;
+        const outLogFilePath = path.join(logFileDir, outLogFileName);
+        let outLog = fs.openSync(outLogFilePath, 'w');
+
+        const errLogFileName = `${logFileDate}.reference.stderr.logs`;
+        const errLogFilePath = path.join(logFileDir, errLogFileName);
+        let errLog = fs.openSync(errLogFilePath, 'w');
+
+        const execConfig = {
+            shell: true,
             // 15 minutes
-            timeout: 15*60*1000
+            timeout: 15 * 60 * 1000,
+            stdio: [
+                'ignore',
+                outLog,
+                errLog
+            ]
         };
 
-        try {
-            backstopMetrics.reference = {
-                'start': new Date()
-            };
-            childProcess.execSync(`xvfb-run -a backstop reference --configPath=${configPath}`, execSyncConfig);
-            backstopMetrics.reference.end = new Date();
-        }
-        catch (error) {
-            backstopMetrics.reference.end = new Date();
-            console.log(`Error (${error.code}) while running the reference command: ${error.message}`);
-            return Promise.reject('The "reference" command ended with an error.');
-        }
+        backstopMetrics.reference = {
+            'start': new Date()
+        };
 
-        return Promise.resolve('The "reference" command ended successfully.');
+        return spawn(`xvfb-run -a backstop reference --configPath=${configPath}`, [], execConfig)
+            .then(() => {
+                backstopMetrics.reference.end = new Date();
+                return Promise.resolve({
+                    message: 'The "reference" command ended successfully.',
+                    logs: {
+                        out: outLogFilePath,
+                        err: errLogFilePath
+                    }
+                });
+            })
+            .catch(error => {
+                backstopMetrics.reference.end = new Date();
+                console.log(`Error while running the reference command: ${error.message}`);
+                return Promise.reject({
+                    message: 'The "reference" command ended with an error.',
+                    logs: {
+                        out: outLogFilePath,
+                        err: errLogFilePath
+                    }
+                });
+            });
     };
 
     /**
@@ -63,26 +109,59 @@ if ('firefox' === workerConfig.browser) {
      * @returns {Promise<*>}
      */
     commands.test = async function executeTestChildProcess(configPath) {
-        const execSyncConfig = {
-            stdio: 'inherit',
+        if (null === logFileDate) {
+            logFileDate = dateToDirname();
+        }
+
+        console.log('Running the test command.');
+        const logFileDir = path.join(path.dirname(configPath), 'logs');
+        const outLogFileName = `${logFileDate}.test.stdout.logs`;
+        const outLogFilePath = path.join(logFileDir, outLogFileName);
+        let outLog = fs.openSync(outLogFilePath, 'w');
+
+        const errLogFileName = `${logFileDate}.test.stderr.logs`;
+        const errLogFilePath = path.join(logFileDir, errLogFileName);
+        let errLog = fs.openSync(errLogFilePath, 'w');
+
+        logFileDate = null;
+
+        const execConfig = {
+            shell: true,
             // 15 minutes
-            timeout: 15*60*1000
+            timeout: 15 * 60 * 1000,
+            stdio: [
+                'ignore',
+                outLog,
+                errLog
+            ]
         };
 
-        try {
-            backstopMetrics.test = {
-                'start': new Date()
-            };
-            childProcess.execSync(`xvfb-run -a backstop test --configPath=${configPath}`, execSyncConfig);
-            backstopMetrics.test.end = new Date();
-        }
-        catch (error) {
-            backstopMetrics.test.end = new Date();
-            console.log(`Error while running the test command: ${error.message}`);
-            return Promise.reject('The "test" command ended with an error.');
-        }
+        backstopMetrics.test = {
+            'start': new Date()
+        };
 
-        return Promise.resolve('The "test" command ended successfully.');
+        return spawn(`xvfb-run -a backstop test --configPath=${configPath}`, execConfig)
+            .then(() => {
+                backstopMetrics.test.end = new Date();
+                return Promise.resolve({
+                    message: 'The "test" command ended successfully.',
+                    logs: {
+                        out: outLogFilePath,
+                        err: errLogFilePath
+                    }
+                });
+            })
+            .catch(error => {
+                backstopMetrics.test.end = new Date();
+                console.log(`Error while running the test command: ${error.message}`);
+                return Promise.reject({
+                    message: 'The "test" command ended with an error.',
+                    logs: {
+                        out: outLogFilePath,
+                        err: errLogFilePath
+                    }
+                });
+            });
     }
 
 }
@@ -93,6 +172,7 @@ else {
         backstopMetrics.reference = {
             'start': new Date()
         };
+        // @todo: Use "fork" and execute this as a child process, so we can capture the logs in files.
         return backstop('reference', { config: config })
             .then(function () {
                 console.log(`Reference success for test ${config.id}.`);
