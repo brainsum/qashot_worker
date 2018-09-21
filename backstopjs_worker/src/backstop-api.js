@@ -154,6 +154,8 @@ if ('firefox' === workerConfig.browser) {
             .catch(error => {
                 backstopMetrics.test.end = new Date();
                 console.log(`Error while running the test command: ${error.message}`);
+                // @todo: Add logs to the backstopMetrics instead of returning them.
+                // These return vals are not used anyways.
                 return Promise.reject({
                     message: 'The "test" command ended with an error.',
                     logs: {
