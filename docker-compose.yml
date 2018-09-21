@@ -35,7 +35,7 @@ services:
       retries: 5
 
   backstopjs_worker_firefox:
-    image: brainsum/qashot_worker_backstopjs_firefox:0.9.0
+    image: brainsum/qashot_worker_backstopjs_firefox:0.9.1
     environment:
     - "NODE_ENV=production"
     - "WORKER_BROWSER=firefox"
