@@ -123,7 +123,9 @@ function rabbitTestLoop() {
             console.log('Data received. Config ID is: ' + backstopConfig.id);
             const templates = path.join(appRootDir, 'templates');
             const currentRuntime = path.join(appRootDir, 'runtime', workerConfig.browser, backstopConfig.id);
+            const logDir = path.join(appRootDir, 'runtime', workerConfig.browser, backstopConfig.id, 'logs');
             ensureDirectory(currentRuntime);
+            ensureDirectory(logDir);
 
             backstopConfig.onBeforeScript = 'onBefore.js';
             backstopConfig.onReadyScript = 'onReady.js';
