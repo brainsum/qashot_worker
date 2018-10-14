@@ -27,7 +27,7 @@ preFlightCheck();
 
 const appRootDir = require('./src/app-root');
 const express = require('express');
-const terminus = require('@godaddy/terminus');
+const {createTerminus} = require('@godaddy/terminus');
 const path = require('path');
 const fs = require('fs');
 const util = require('util');
@@ -287,7 +287,7 @@ async function run() {
     console.log('Setting the server..');
     server = app.listen(PORT, HOST, function () {
         console.log(`Running on http://${HOST}:${PORT}`);
-        terminus(server, terminusOptions);
+        createTerminus(server, terminusOptions);
     });
 }
 
