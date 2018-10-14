@@ -99,7 +99,7 @@ services:
       retries: 5
 
   internal_rabbitmq:
-    image: bitnami/rabbitmq:3.7.7
+    image: bitnami/rabbitmq:3.7.8
     environment:
     - "RABBITMQ_USERNAME=user"
     - "RABBITMQ_PASSWORD=bitnami"
@@ -228,7 +228,7 @@ services:
 
   # Other.
   traefik:
-    image: traefik:v1.6.6-alpine # The official Traefik docker image
+    image: traefik:1.7.2-alpine
     container_name: "${PROJECT_NAME}_traefik"
     restart: on-failure
     ports:
