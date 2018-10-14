@@ -25,7 +25,7 @@ preFlightCheck();
 
 const express = require('express');
 const helmet = require('helmet');
-const terminus = require('@godaddy/terminus');
+const {createTerminus} = require('@godaddy/terminus');
 const asyncHandlerMiddleware = require('express-async-handler');
 const jwtHandlerMiddleware = require('express-jwt');
 
@@ -350,7 +350,7 @@ async function run() {
     console.log('Setting the server..');
     server = app.listen(PORT, HOST, function () {
         console.log(`Running on http://${HOST}:${PORT}`);
-        terminus(server, terminusOptions);
+        createTerminus(server, terminusOptions);
     });
 }
 
