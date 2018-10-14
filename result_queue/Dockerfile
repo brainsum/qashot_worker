@@ -1,5 +1,5 @@
 # Build
-FROM node:10.10.0-alpine
+FROM node:10.12.0-alpine
 
 ARG EXPOSED_PORT
 
