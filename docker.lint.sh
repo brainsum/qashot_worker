@@ -13,7 +13,7 @@ echo ""
 echo ""
 ./vendor/hadolint ./backstopjs_worker/Dockerfile-firefox
 echo ""
-./vendor/hadolint ./backstopjs_firefox_worker/Dockerfile-firefox
-echo ""
 ./vendor/hadolint ./backstopjs_worker/Dockerfile-phantomjs
+echo ""
+./vendor/hadolint ./result_queue/Dockerfile
 echo ""
