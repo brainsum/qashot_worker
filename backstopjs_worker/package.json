@@ -24,6 +24,7 @@
   "homepage": "https://github.com/brainsum/qashot_worker#readme",
   "dependencies": {
     "@godaddy/terminus": "^4.1.0",
+    "ajv": "^6.5.4",
     "amqplib": "^0.5.2",
     "backstopjs": "^3.7.0",
     "express": "^4.16.3",
