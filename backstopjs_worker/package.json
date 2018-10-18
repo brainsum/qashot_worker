@@ -25,7 +25,7 @@
   "dependencies": {
     "@godaddy/terminus": "^4.1.0",
     "amqplib": "^0.5.2",
-    "backstopjs": "^3.5.12",
+    "backstopjs": "^3.7.0",
     "express": "^4.16.3",
     "promisify-child-process": "^2.0.0",
     "react": "^15.6.2",
