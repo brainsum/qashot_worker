@@ -231,7 +231,7 @@ const runABTest = function runABTest(config) {
             return commands.test(configPath);
         })
         .catch(function (error) {
-            console.error(`Test error: ${error}`);
+            console.error(`Test error: ${error.message}`);
             return error;
         })
         .finally(function () {

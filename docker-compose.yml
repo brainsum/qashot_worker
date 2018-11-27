@@ -1,7 +1,7 @@
 version: "3.7"
 services:
   backstopjs_worker_chrome:
-    image: brainsum/qashot_worker_backstopjs_chrome:0.9.0
+    image: brainsum/qashot_worker_backstopjs_chrome:0.9.2
     security_opt:
     - seccomp:unconfined
     environment:
@@ -35,7 +35,7 @@ services:
       retries: 5
 
   backstopjs_worker_firefox:
-    image: brainsum/qashot_worker_backstopjs_firefox:0.9.1
+    image: brainsum/qashot_worker_backstopjs_firefox:0.9.2
     environment:
     - "NODE_ENV=production"
     - "WORKER_BROWSER=firefox"
@@ -67,7 +67,7 @@ services:
       retries: 5
 
   backstopjs_worker_phantomjs:
-    image: brainsum/qashot_worker_backstopjs_phantomjs:0.9.0
+    image: brainsum/qashot_worker_backstopjs_phantomjs:0.9.2
     environment:
     - "NODE_ENV=production"
     - "WORKER_BROWSER=phantomjs"
@@ -131,7 +131,7 @@ services:
     # - "traefik.frontend.rule=Host:internal-rabbitmq.${PROJECT_BASE_URL}"
 
   frontend:
-    image: brainsum/qashot_worker_frontend:0.9.0
+    image: brainsum/qashot_worker_frontend:0.9.1
     environment:
     - "NODE_ENV=production"
     - "INTERNAL_RABBITMQ_URL=amqp://user:bitnami@internal_rabbitmq:${INTERNAL_RABBITMQ_PORT}"
@@ -180,7 +180,7 @@ services:
       retries: 5
 
   result_queue:
-    image: brainsum/qashot_worker_result_queue:0.9.0
+    image: brainsum/qashot_worker_result_queue:0.9.1
     environment:
     - "NODE_ENV=production"
     - "JWT_SECRET_KEY=${JWT_SECRET_KEY}"

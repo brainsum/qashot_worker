@@ -1,4 +1,4 @@
-FROM node:10.12.0
+FROM node:10.13.0
 
 LABEL maintainer="mhavelant"
 
@@ -20,8 +20,7 @@ ENV PATH="/home/node/app/node_modules/.bin:${PATH}" \
 	DISPLAY=localhost:0.0 \
     MOZ_HEADLESS=1 \
 	NPM_CONFIG_UNSAFE_PERM=true \
-#	FIREFOX_VERSION=59.0 \
-	FIREFOX_ESR_VERSION=52.* \
+	FIREFOX_VERSION=52.9.0esr \
 	TINI_VERSION=v0.18.0 \
     EXPOSED_PORT=10100 \
     PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
@@ -51,9 +50,7 @@ RUN \
         ttf-freefont \
         fontconfig \
         ca-certificates \
-        software-properties-common \
-        python-software-properties \
-        firefox-esr=${FIREFOX_ESR_VERSION} && \
+        software-properties-common && \
     # Cleanupetc
     apt-get -y clean && \
     apt-get -y autoclean && \
