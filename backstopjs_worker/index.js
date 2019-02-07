@@ -108,96 +108,134 @@ function pushResults(backstopConfig, message) {
 //     'debugWindow': (process.env.DEBUG_WINDOW === true)
 // };
 
-function rabbitTestLoop() {
+/**
+ * Process the message from the MessageQueue.
+ *
+ * @param {Object} message
+ *   The message object from the queue.
+ *
+ * @return {Object}
+ *   The BackstopJS config object.
+ */
+function processMessage(message) {
+    // @todo: Maybe use this for something.
+    // const originalBackstopConfig = message.test_config;
+    let backstopConfig = message.test_config;
+    // @fixme @todo: This is temporary:
+    backstopConfig.id = String(backstopConfig.id);
+    backstopConfig.fileNameTemplate = '{scenarioLabel}_{selectorIndex}_{selectorLabel}_{viewportIndex}_{viewportLabel}';
+
+    console.log('Data received. Config ID is: ' + backstopConfig.id);
+    const templatesAbsDir = path.join(appRootDir, 'templates');
+    const currentRuntime = path.join(appRootDir, 'runtime', workerConfig.browser, backstopConfig.id);
+    const logDir = path.join(appRootDir, 'runtime', workerConfig.browser, backstopConfig.id, 'logs');
+    ensureDirectory(currentRuntime);
+    ensureDirectory(logDir);
+
+    backstopConfig.onBeforeScript = 'onBefore.js';
+    backstopConfig.onReadyScript = 'onReady.js';
+
+    backstopConfig.paths = {
+        "engine_scripts": (workerConfig.browser === 'phantomjs')
+            ? path.join('templates', workerConfig.scriptsFolder)
+            : path.join(templatesAbsDir, workerConfig.scriptsFolder),
+        "bitmaps_reference": path.join(currentRuntime, "reference"),
+        "bitmaps_test": path.join(currentRuntime, "test"),
+        "html_report": path.join(currentRuntime, "html_report"),
+        "ci_report": path.join(currentRuntime, "ci_report")
+    };
+
+    if (!backstopConfig.hasOwnProperty('ci')) {
+        backstopConfig.ci = {
+            testSuiteName: "QAShot.com"
+        };
+    }
+    else {
+        backstopConfig.ci.testSuiteName = "QAShot.com";
+    }
+
+    if (!backstopConfig.hasOwnProperty('resembleOutputOptions')) {
+        backstopConfig.resembleOutputOptions = {
+            "errorColor": {
+                "red": 255,
+                "green": 0,
+                "blue": 255
+            },
+            "errorType": "movement",
+            "transparency": "0.3",
+            "largeImageThreshold": "1200",
+            "useCrossOrigin": true
+        };
+    }
+
+    Object.keys(backstopConfig.paths).forEach(function (key) {
+        ensureDirectory(backstopConfig.paths[key]);
+    });
+
+    backstopConfig.engine = workerConfig.engine;
+    backstopConfig[workerConfig.engineOptions.backstopKey] = workerConfig.engineOptions.options;
+    backstopConfig.asyncCaptureLimit = 10;
+    backstopConfig.asyncCompareLimit = 10;
+    // Force CI reporting, otherwise backstop opens the html report and
+    // the processes hang indefinitely.
+    backstopConfig.report = [
+        "CI"
+    ];
+
+    if (process.env.DEBUG === true) {
+        backstopConfig.debug = true;
+    }
+    if (process.env.DEBUG_WINDOW === true) {
+        backstopConfig.debugWindow = true;
+    }
+
+    fs.writeFileSync(path.join(currentRuntime, 'backstop.json'), JSON.stringify(backstopConfig));
+
+    return backstopConfig;
+}
+
+async function rabbitTestLoop() {
+    const timeout = 10000;
     console.time('rabbitTestLoop');
 
-    internalMessageQueue.read(workerConfig.browser)
-        .then(message => {
-            // @todo: Maybe use this for something.
-            // const originalBackstopConfig = message.test_config;
-            let backstopConfig = message.test_config;
-            // @fixme @todo: This is temporary:
-            backstopConfig.id = String(backstopConfig.id);
-            backstopConfig.fileNameTemplate = '{scenarioLabel}_{selectorIndex}_{selectorLabel}_{viewportIndex}_{viewportLabel}';
+    let message = null;
 
-            console.log('Data received. Config ID is: ' + backstopConfig.id);
-            const templates = path.join(appRootDir, 'templates');
-            const currentRuntime = path.join(appRootDir, 'runtime', workerConfig.browser, backstopConfig.id);
-            const logDir = path.join(appRootDir, 'runtime', workerConfig.browser, backstopConfig.id, 'logs');
-            ensureDirectory(currentRuntime);
-            ensureDirectory(logDir);
+    try {
+        message = await internalMessageQueue.read(workerConfig.browser);
+    }
+    catch (error) {
+        console.log(`Couldn't read from RabbitMQ: ${error}`);
+        console.log(`Queue read delayed for ${timeout / 1000} seconds.`);
+        console.timeEnd('rabbitTestLoop');
 
-            backstopConfig.onBeforeScript = 'onBefore.js';
-            backstopConfig.onReadyScript = 'onReady.js';
-
-            backstopConfig.paths = {
-                "engine_scripts": (workerConfig.browser === 'phantomjs') ? path.join('templates', workerConfig.scriptsFolder) : path.join(templates, workerConfig.scriptsFolder),
-                "bitmaps_reference": path.join(currentRuntime, "reference"),
-                "bitmaps_test": path.join(currentRuntime, "test"),
-                "html_report": path.join(currentRuntime, "html_report"),
-                "ci_report": path.join(currentRuntime, "ci_report")
-            };
-
-            if (!backstopConfig.hasOwnProperty('resembleOutputOptions')) {
-                backstopConfig.resembleOutputOptions = {
-                    "errorColor": {
-                        "red": 255,
-                          "green": 0,
-                          "blue": 255
-                    },
-                    "errorType": "movement",
-                      "transparency": "0.3",
-                      "largeImageThreshold": "1200",
-                      "useCrossOrigin": true
-                };
-            }
-
-            Object.keys(backstopConfig.paths).forEach(function (key) {
-                ensureDirectory(backstopConfig.paths[key]);
-            });
-
-            backstopConfig.engine = workerConfig.engine;
-            backstopConfig[workerConfig.engineOptions.backstopKey] = workerConfig.engineOptions.options;
-            backstopConfig.asyncCaptureLimit = 10;
-            backstopConfig.asyncCompareLimit = 10;
-            // Force CI reporting, otherwise backstop opens the html report and
-            // the processes hang indefinitely.
-            backstopConfig.report = [
-                "CI"
-            ];
-
-            if (process.env.DEBUG === true) {
-                backstopConfig.debug = true;
-            }
-            if (process.env.DEBUG_WINDOW === true) {
-                backstopConfig.debugWindow = true;
-            }
-
-            fs.writeFileSync(path.join(currentRuntime, 'backstop.json'), JSON.stringify(backstopConfig));
-
-            backstopApi.runABTest(backstopConfig)
-                .finally(async function () {
-                    console.timeEnd('rabbitTestLoop');
-                    console.log(`Test ${backstopConfig.id} ended.`);
-                    try {
-                        const results = await pushResults(backstopConfig, message);
-                        console.log(`Results: ${results}`);
-                    }
-                    catch (error) {
-                        console.log(error);
-                    }
-
-                    rabbitTestLoop();
-                });
-        })
-        .catch(error => {
-            console.timeEnd('rabbitTestLoop');
-            console.log(`Couldn't read from RabbitMQ: ${error}`);
-            const timeout = 10000;
-            return delay(timeout).then(() => {
-                rabbitTestLoop();
-            });
+        return delay(timeout).then(async () => {
+            await rabbitTestLoop();
         });
+    }
+
+    const backstopConfig = processMessage(message);
+
+    try {
+        const abResult = await backstopApi.runABTest(backstopConfig);
+        console.log(`Success for test ${backstopConfig.id}.`);
+    }
+    catch (error) {
+        console.error(`${error.message}`);
+        console.error(`Error for test ${backstopConfig.id}.`);
+        console.timeEnd('rabbitTestLoop');
+        await rabbitTestLoop();
+    }
+
+    try {
+        const results = await pushResults(backstopConfig, message);
+        console.log(`Push results: ${util.inspect(results)}`);
+    }
+    catch (error) {
+        console.error(`Push error: ${error.message}`);
+    }
+
+    console.timeEnd('rabbitTestLoop');
+    await rabbitTestLoop();
 }
 
 // App
@@ -278,17 +316,24 @@ async function run() {
         console.log(message);
     }
     catch (error) {
-        console.log(`Error! ${error.message}`);
-        // @todo: Exit 1.
+        throw error;
     }
-
-    rabbitTestLoop();
 
     console.log('Setting the server..');
     server = app.listen(PORT, HOST, function () {
         console.log(`Running on http://${HOST}:${PORT}`);
         createTerminus(server, terminusOptions);
     });
+
+    return 'Server should be up.';
 }
 
-run();
+run()
+    .then(async () => {
+        console.log('Starting test loop.');
+        await rabbitTestLoop();
+    })
+    .catch(error => {
+        console.log(`Error! ${error.message}`);
+        process.exitCode = 1;
+    });
