@@ -36,10 +36,10 @@
     "slimerjs": "^0.10.3"
   },
   "devDependencies": {
-    "eslint": "^5.9.0",
-    "eslint-plugin-node": "^8.0.0",
+    "eslint": "^5.13.0",
+    "eslint-plugin-node": "^8.0.1",
     "eslint-plugin-security": "^1.4.0",
-    "nodemon": "^1.18.7"
+    "nodemon": "^1.18.9"
   },
   "nodemonConfig": {
     "ignore": [
