@@ -28,16 +28,17 @@ RUN wget https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini 
     wget https://dl-ssl.google.com/linux/linux_signing_key.pub && \
     apt-key add linux_signing_key.pub && \
     apt-get install -y --no-install-recommends \
-        software-properties-common && \
+        software-properties-common=0.96.20.2-1 && \
     add-apt-repository "deb http://dl.google.com/linux/chrome/deb/ stable main" && \
     apt-get update && \
 	apt-get install -y --no-install-recommends \
-	    google-chrome-stable \
-	    fonts-ipafont-gothic \
-	    fonts-wqy-zenhei \
-	    fonts-thai-tlwg \
-	    fonts-kacst \
-	    ttf-freefont && \
+#	    google-chrome-stable=72.0.3626.96-1 \
+	    google-chrome-stable=70.0.3538.110-1 \
+	    fonts-ipafont-gothic=00303-16 \
+	    fonts-wqy-zenhei=0.9.45-6 \
+	    fonts-thai-tlwg=1:0.6.3-1 \
+	    fonts-kacst=2.01+mry-12 \
+	    ttf-freefont=20120503-6 && \
     # Cleanupetc
     apt-get -y clean && \
     apt-get -y autoclean && \

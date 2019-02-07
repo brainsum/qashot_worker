@@ -26,8 +26,8 @@ RUN \
     wget https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini -O /sbin/tini && \
     chmod +x /sbin/tini && \
     apt-get update && apt-get install -y --no-install-recommends \
-        ca-certificates \
-        software-properties-common && \
+        ca-certificates=20161130+nmu1+deb9u1 \
+        software-properties-common=0.96.20.2-1 && \
     # Cleanupetc
     apt-get -y clean && \
     apt-get -y autoclean && \
