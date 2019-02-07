@@ -1,7 +1,7 @@
 'use strict';
 
 const path = require('path');
-const fs = require('fs');
+const fs = require('fs-extra');
 const { spawn } = require('promisify-child-process');
 
 const backstop = require('backstopjs');
@@ -168,7 +168,7 @@ if ('firefox' === workerConfig.browser) {
 
 }
 else {
-    commands.reference = function executeReference(configPath) {
+    commands.reference = async function executeReference(configPath) {
         const config = loadConfig(configPath);
 
         backstopMetrics.reference = {
@@ -186,7 +186,7 @@ else {
             });
     };
 
-    commands.test = function executeTest(configPath) {
+    commands.test = async function executeTest(configPath) {
         const config = loadConfig(configPath);
 
         backstopMetrics.test = {
@@ -209,7 +209,7 @@ else {
  * @param {Object} config
  * @return {*|void|PromiseLike<T | never>|Promise<T | never>}
  */
-const runABTest = function runABTest(config) {
+const runABTest = async function runABTest(config) {
     backstopMetrics = {
         full: {
             start: new Date()
@@ -223,20 +223,44 @@ const runABTest = function runABTest(config) {
     }
     catch (error) {
         backstopMetrics.full.end = new Date();
-        return Promise.reject(error);
+        throw error;
     }
 
-    return commands.reference(configPath)
-        .then(function () {
-            return commands.test(configPath);
-        })
-        .catch(function (error) {
-            console.error(`Test error: ${error.message}`);
-            return error;
-        })
-        .finally(function () {
-            backstopMetrics.full.end = new Date();
-        });
+    try {
+        // Contains either:
+        // - {message: str, logs: {out: str, err: str}}
+        // - whatever backstop returns
+        const reference = await commands.reference(configPath);
+    }
+    catch (exception) {
+        console.error(`Test error | reference command: ${error.message}`);
+        backstopMetrics.full.end = new Date();
+        throw error;
+    }
+
+    try {
+        // Contains either:
+        // - {message: str, logs: {out: str, err: str}}
+        // - whatever backstop returns
+        const test = await commands.test(configPath);
+    }
+    catch (exception) {
+        console.error(`Test error | test command: ${error.message}`);
+        backstopMetrics.full.end = new Date();
+        throw error;
+    }
+
+    try {
+        const reportUpdate = await customizeHtmlReportsPage(config['paths']['html_report']);
+    }
+    catch (error) {
+        console.error(`Test error | html reports update: ${error.message}`);
+        backstopMetrics.full.end = new Date();
+        throw error;
+    }
+
+    backstopMetrics.full.end = new Date();
+    return 'Ok';
 };
 
 /**
@@ -245,7 +269,7 @@ const runABTest = function runABTest(config) {
  * @param {Object} backstopResults
  * @return {Promise<any>}
  */
-const parseResults = function parseResults(backstopConfig, backstopResults) {
+const parseResults = async function parseResults(backstopConfig, backstopResults) {
     return new Promise(resolve => {
         let passedCount = 0;
         let failedCount = 0;
@@ -332,7 +356,7 @@ const parseResults = function parseResults(backstopConfig, backstopResults) {
  * @param {String|Number} id
  * @return {Promise<any>}
  */
-const loadResults = function loadResults(reportPath, id) {
+const loadResults = async function loadResults(reportPath, id) {
     return new Promise(((resolve, reject) => {
         const resultFile = path.join(reportPath, 'config.js');
         if (!fs.existsSync(resultFile)) {
@@ -342,6 +366,38 @@ const loadResults = function loadResults(reportPath, id) {
         const results = JSON.parse(fs.readFileSync(resultFile, 'utf8').replace('report(', '').replace(');', ''));
         return resolve(results);
     }));
+};
+
+/**
+ * Customize the HTML Report page for QAShot.com.
+ *
+ * @throws Error
+ *   If a filesystem operation fails.
+ *
+ * @param {string} reportPath
+ *   The path to the HTML Report.
+ *
+ * @return {Promise<string>}
+ *   Success message.
+ */
+const customizeHtmlReportsPage = async function customizeHtmlReportsPage(reportPath) {
+    const qashotComparePath = path.join(appRootDir, 'node_modules', 'qashot-compare');
+    const customReportFolder = path.join(qashotComparePath, 'output');
+    const resultFile = path.join(reportPath, 'config.js');
+
+    // We only require read for this.
+    await fs.access(customReportFolder, fs.constants.R_OK);
+
+    // Read config.js into memory.
+    const resultData = await fs.readFile(resultFile, 'utf8');
+
+    await fs.emptyDir(reportPath);
+    await fs.copy(customReportFolder, reportPath);
+
+    // Write config.js to disk.
+    await fs.writeFile(resultFile, resultData);
+
+    return 'Custom reports page copied.';
 };
 
 module.exports = {
