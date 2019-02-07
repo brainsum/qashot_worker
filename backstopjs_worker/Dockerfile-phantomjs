@@ -49,4 +49,6 @@ RUN npm install --only=production && \
 
 COPY . .
 
+ENV NODE_ENV=production
+
 USER node
