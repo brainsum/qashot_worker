@@ -32,8 +32,7 @@ RUN wget https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini 
     add-apt-repository "deb http://dl.google.com/linux/chrome/deb/ stable main" && \
     apt-get update && \
 	apt-get install -y --no-install-recommends \
-#	    google-chrome-stable=72.0.3626.96-1 \
-	    google-chrome-stable=70.0.3538.110-1 \
+	    google-chrome-stable=72.0.3626.96-1 \
 	    fonts-ipafont-gothic=00303-16 \
 	    fonts-wqy-zenhei=0.9.45-6 \
 	    fonts-thai-tlwg=1:0.6.3-1 \
