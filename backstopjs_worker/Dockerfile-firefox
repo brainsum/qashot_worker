@@ -26,10 +26,10 @@ ENV PATH="/home/node/app/node_modules/.bin:${PATH}" \
     PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
 RUN \
-#    wget "http://ftp.mozilla.org/pub/firefox/releases/${FIREFOX_VERSION}/linux-$(uname -m)/en-US/firefox-${FIREFOX_VERSION}.tar.bz2" && \
-#    tar -xjf firefox-${FIREFOX_VERSION}.tar.bz2 && \
-#    mv firefox /opt/ && \
-#    ln -s /opt/firefox/firefox /usr/bin/firefox && \
+    wget "http://ftp.mozilla.org/pub/firefox/releases/${FIREFOX_VERSION}/linux-$(uname -m)/en-US/firefox-${FIREFOX_VERSION}.tar.bz2" && \
+    tar -xjf firefox-${FIREFOX_VERSION}.tar.bz2 && \
+    mv firefox /opt/ && \
+    ln -s /opt/firefox/firefox /usr/bin/firefox && \
     # Tini.
     wget https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini -O /sbin/tini && \
     chmod +x /sbin/tini && \
