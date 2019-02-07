@@ -28,14 +28,16 @@
     "amqplib": "^0.5.2",
     "backstopjs": "^3.8.2",
     "express": "^4.16.4",
+    "fs-extra": "^7.0.1",
     "promisify-child-process": "^2.1.2",
-    "qashot-compare": "^1.0.0",
+    "qashot-compare": "^1.0.2",
     "react": "^15.6.2",
     "react-dom": "^15.6.2",
     "request-promise-native": "^1.0.5",
     "slimerjs": "^0.10.3"
   },
   "devDependencies": {
+    "@types/fs-extra": "^5.0.4",
     "eslint": "^5.13.0",
     "eslint-plugin-node": "^8.0.1",
     "eslint-plugin-security": "^1.4.0",
