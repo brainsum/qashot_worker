@@ -112,3 +112,6 @@ services:
       - "traefik.backend=mailhog"
       - "traefik.frontend.rule=Host:mailhog.${PROJECT_BASE_URL}"
       - "traefik.docker.network=${PROJECT_NAME}_monitoring"
+
+  mail_server:
+    restart: "no"
