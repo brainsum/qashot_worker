@@ -23,7 +23,7 @@ x-health-check:
 
 services:
   backstopjs_worker_chrome:
-    image: brainsum/qashot-worker-backstopjs-chrome:0.10.4
+    image: brainsum/qashot-worker-backstopjs-chrome:0.10.5
     security_opt:
     - seccomp:unconfined
     # @todo: Might be needed.
@@ -57,7 +57,7 @@ services:
     <<: *dns-config
 
   backstopjs_worker_firefox:
-    image: brainsum/qashot-worker-backstopjs-firefox:0.10.4
+    image: brainsum/qashot-worker-backstopjs-firefox:0.10.5
     environment:
     - "NODE_ENV=production"
     - "WORKER_BROWSER=firefox"
@@ -86,7 +86,7 @@ services:
     <<: *dns-config
 
   backstopjs_worker_phantomjs:
-    image: brainsum/qashot-worker-backstopjs-phantomjs:0.10.4
+    image: brainsum/qashot-worker-backstopjs-phantomjs:0.10.5
     environment:
     - "NODE_ENV=production"
     - "WORKER_BROWSER=phantomjs"
