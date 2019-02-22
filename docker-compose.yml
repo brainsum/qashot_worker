@@ -26,6 +26,9 @@ services:
     image: brainsum/qashot-worker-backstopjs-chrome:0.10.4
     security_opt:
     - seccomp:unconfined
+    # @todo: Might be needed.
+#    cap_add:
+#      - SYS_ADMIN
     environment:
     - "NODE_ENV=production"
     - "WORKER_BROWSER=chrome"
@@ -52,7 +55,6 @@ services:
       - chrome_runtime:/home/node/app/runtime/chrome
     <<: *health-check
     <<: *dns-config
-
 
   backstopjs_worker_firefox:
     image: brainsum/qashot-worker-backstopjs-firefox:0.10.4
