@@ -13,6 +13,14 @@ x-dns-config:
     - 8.8.8.8
     - 8.8.4.4
 
+x-health-check:
+  &health-check
+  healthcheck:
+    test: ["CMD", "node", "healthcheck.js"]
+    interval: 10s
+    timeout: 10s
+    retries: 5
+
 services:
   backstopjs_worker_chrome:
     image: brainsum/qashot-worker-backstopjs-chrome:0.10.4
@@ -42,11 +50,7 @@ services:
     - chrome_worker_monitoring
     volumes:
       - chrome_runtime:/home/node/app/runtime/chrome
-    healthcheck:
-      test: ["CMD", "node", "healthcheck.js"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
+    <<: *health-check
     <<: *dns-config
 
 
@@ -76,11 +80,7 @@ services:
     - firefox_worker_monitoring
     volumes:
     - firefox_runtime:/home/node/app/runtime/firefox
-    healthcheck:
-      test: ["CMD", "node", "healthcheck.js"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
+    <<: *health-check
     <<: *dns-config
 
   backstopjs_worker_phantomjs:
@@ -109,11 +109,7 @@ services:
     - phantomjs_worker_monitoring
     volumes:
     - phantomjs_runtime:/home/node/app/runtime/phantomjs
-    healthcheck:
-      test: ["CMD", "node", "healthcheck.js"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
+    <<: *health-check
     <<: *dns-config
 
   internal_rabbitmq:
@@ -191,11 +187,7 @@ services:
       volume:
         nocopy: true
     stop_grace_period: 10s
-    healthcheck:
-      test: ["CMD", "node", "healthcheck.js"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
+    <<: *health-check
 
   result_queue:
     image: brainsum/qashot-worker-result-queue:0.10.0
@@ -207,11 +199,6 @@ services:
     - "DB_PASSWORD=${RESULT_DB_PASSWORD}"
     - "PROJECT_ENVIRONMENT=production"
     stop_grace_period: 10s
-    healthcheck:
-      test: ["CMD", "node", "healthcheck.js"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
     restart: on-failure
     depends_on:
     - result_db
@@ -227,6 +214,7 @@ services:
     - "traefik.frontend.rule=Host:results.${PROJECT_BASE_URL}"
     - "traefik.port=9800"
     - "traefik.docker.network=${PROJECT_NAME}_frontend_result_queue"
+    <<: *health-check
 
   result_db:
     image: bitnami/postgresql:10.5.0
