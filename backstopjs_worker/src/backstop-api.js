@@ -12,6 +12,7 @@ const workerConfig = require('./worker-config');
 const RESULTS_ENDPOINT_URL = process.env.RESULTS_ENDPOINT_URL;
 
 let backstopMetrics = {};
+
 const commands = {
     test: null,
     reference: null
@@ -82,24 +83,21 @@ if ('firefox' === workerConfig.browser) {
         return spawn(`xvfb-run -a backstop reference --configPath=${configPath}`, [], execConfig)
             .then(() => {
                 backstopMetrics.reference.end = new Date();
-                return Promise.resolve({
-                    message: 'The "reference" command ended successfully.',
-                    logs: {
-                        out: outLogFilePath,
-                        err: errLogFilePath
-                    }
-                });
+                console.log(`The "reference" command ended successfully.`);
+
+                backstopMetrics.logs.reference = {};
+                backstopMetrics.logs.reference.out = outLogFilePath;
+                backstopMetrics.logs.reference.err = errLogFilePath;
+                backstopMetrics.logs.reference.errorMessage = '';
             })
             .catch(error => {
                 backstopMetrics.reference.end = new Date();
-                console.log(`Error while running the reference command: ${error.message}`);
-                return Promise.reject({
-                    message: 'The "reference" command ended with an error.',
-                    logs: {
-                        out: outLogFilePath,
-                        err: errLogFilePath
-                    }
-                });
+                console.log(`The "reference" command ended with an error.`);
+
+                backstopMetrics.logs.reference = {};
+                backstopMetrics.logs.reference.out = outLogFilePath;
+                backstopMetrics.logs.reference.err = errLogFilePath;
+                backstopMetrics.logs.reference.errorMessage = error.message;
             });
     };
 
@@ -143,26 +141,21 @@ if ('firefox' === workerConfig.browser) {
         return spawn(`xvfb-run -a backstop test --configPath=${configPath}`, execConfig)
             .then(() => {
                 backstopMetrics.test.end = new Date();
-                return Promise.resolve({
-                    message: 'The "test" command ended successfully.',
-                    logs: {
-                        out: outLogFilePath,
-                        err: errLogFilePath
-                    }
-                });
+                console.log(`The "test" command ended successfully.`);
+
+                backstopMetrics.logs.test = {};
+                backstopMetrics.logs.test.out = outLogFilePath;
+                backstopMetrics.logs.test.err = errLogFilePath;
+                backstopMetrics.logs.test.errorMessage = '';
             })
             .catch(error => {
                 backstopMetrics.test.end = new Date();
-                console.log(`Error while running the test command: ${error.message}`);
-                // @todo: Add logs to the backstopMetrics instead of returning them.
-                // These return vals are not used anyways.
-                return Promise.reject({
-                    message: 'The "test" command ended with an error.',
-                    logs: {
-                        out: outLogFilePath,
-                        err: errLogFilePath
-                    }
-                });
+                console.log(`The "test" command ended with an error.`);
+
+                backstopMetrics.logs.test = {};
+                backstopMetrics.logs.test.out = outLogFilePath;
+                backstopMetrics.logs.test.err = errLogFilePath;
+                backstopMetrics.logs.test.errorMessage = error.message;
             });
     }
 
@@ -174,16 +167,27 @@ else {
         backstopMetrics.reference = {
             'start': new Date()
         };
-        // @todo: Use "fork" and execute this as a child process, so we can capture the logs in files.
-        return backstop('reference', { config: config })
-            .then(function () {
-                console.log(`Reference success for test ${config.id}.`);
-                backstopMetrics.reference.end = new Date();
-            })
-            .catch(function () {
-                console.error(`Reference fail for test ${config.id}.`);
-                backstopMetrics.reference.end = new Date();
-            });
+
+        // @todo: Use "fork" and execute this as a child process, so we can capture the logs in files?
+        try {
+            const results = backstop('reference', { config: config });
+            console.log(`The "reference" command ended successfully.`);
+            backstopMetrics.reference.end = new Date();
+
+            backstopMetrics.logs.reference = {};
+            backstopMetrics.logs.reference.out = '';
+            backstopMetrics.logs.reference.err = '';
+            backstopMetrics.logs.reference.errorMessage = '';
+        }
+        catch (error) {
+            console.log(`The "reference" command ended with an error.`);
+            backstopMetrics.reference.end = new Date();
+
+            backstopMetrics.logs.reference = {};
+            backstopMetrics.logs.reference.out = '';
+            backstopMetrics.logs.reference.err = '';
+            backstopMetrics.logs.reference.errorMessage = error.message;
+        }
     };
 
     commands.test = async function executeTest(configPath) {
@@ -192,15 +196,26 @@ else {
         backstopMetrics.test = {
             'start': new Date()
         };
-        return backstop('test', { config: config })
-            .then(function () {
-                console.log(`Test success for test ${config.id}.`);
-                backstopMetrics.test.end = new Date();
-            })
-            .catch(function () {
-                console.error(`Test fail for test ${config.id}.`);
-                backstopMetrics.test.end = new Date();
-            });
+
+        try {
+            const results = backstop('test', { config: config });
+            console.log(`The "test" command ended successfully.`);
+            backstopMetrics.test.end = new Date();
+
+            backstopMetrics.logs.test = {};
+            backstopMetrics.logs.test.out = '';
+            backstopMetrics.logs.test.err = '';
+            backstopMetrics.logs.test.errorMessage = '';
+        }
+        catch (error) {
+            console.log(`The "test" command ended with an error.`);
+            backstopMetrics.test.end = new Date();
+
+            backstopMetrics.logs.test = {};
+            backstopMetrics.logs.test.out = '';
+            backstopMetrics.logs.test.err = '';
+            backstopMetrics.logs.test.errorMessage = error.message;
+        }
     };
 }
 
@@ -213,7 +228,8 @@ const runABTest = async function runABTest(config) {
     backstopMetrics = {
         full: {
             start: new Date()
-        }
+        },
+        logs: {}
     };
 
     const configPath = path.join(appRootDir, 'runtime', workerConfig['browser'], config['id'], 'backstop.json');
