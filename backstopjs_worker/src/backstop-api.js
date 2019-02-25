@@ -12,6 +12,7 @@ const workerConfig = require('./worker-config');
 const RESULTS_ENDPOINT_URL = process.env.RESULTS_ENDPOINT_URL;
 
 let backstopMetrics = {};
+let runtimeLogs = {};
 
 const commands = {
     test: null,
@@ -85,19 +86,19 @@ if ('firefox' === workerConfig.browser) {
                 backstopMetrics.reference.end = new Date();
                 console.log(`The "reference" command ended successfully.`);
 
-                backstopMetrics.logs.reference = {};
-                backstopMetrics.logs.reference.out = outLogFilePath;
-                backstopMetrics.logs.reference.err = errLogFilePath;
-                backstopMetrics.logs.reference.errorMessage = '';
+                runtimeLogs.reference = {};
+                runtimeLogs.reference.out = outLogFileName;
+                runtimeLogs.reference.err = errLogFileName;
+                runtimeLogs.reference.errorMessage = '';
             })
             .catch(error => {
                 backstopMetrics.reference.end = new Date();
                 console.log(`The "reference" command ended with an error.`);
 
-                backstopMetrics.logs.reference = {};
-                backstopMetrics.logs.reference.out = outLogFilePath;
-                backstopMetrics.logs.reference.err = errLogFilePath;
-                backstopMetrics.logs.reference.errorMessage = error.message;
+                runtimeLogs.reference = {};
+                runtimeLogs.reference.out = outLogFileName;
+                runtimeLogs.reference.err = errLogFileName;
+                runtimeLogs.reference.errorMessage = error.message;
             });
     };
 
@@ -143,19 +144,19 @@ if ('firefox' === workerConfig.browser) {
                 backstopMetrics.test.end = new Date();
                 console.log(`The "test" command ended successfully.`);
 
-                backstopMetrics.logs.test = {};
-                backstopMetrics.logs.test.out = outLogFilePath;
-                backstopMetrics.logs.test.err = errLogFilePath;
-                backstopMetrics.logs.test.errorMessage = '';
+                runtimeLogs.test = {};
+                runtimeLogs.test.out = outLogFileName;
+                runtimeLogs.test.err = errLogFileName;
+                runtimeLogs.test.errorMessage = '';
             })
             .catch(error => {
                 backstopMetrics.test.end = new Date();
                 console.log(`The "test" command ended with an error.`);
 
-                backstopMetrics.logs.test = {};
-                backstopMetrics.logs.test.out = outLogFilePath;
-                backstopMetrics.logs.test.err = errLogFilePath;
-                backstopMetrics.logs.test.errorMessage = error.message;
+                runtimeLogs.test = {};
+                runtimeLogs.test.out = outLogFileName;
+                runtimeLogs.test.err = errLogFileName;
+                runtimeLogs.test.errorMessage = error.message;
             });
     }
 
@@ -174,19 +175,19 @@ else {
             console.log(`The "reference" command ended successfully.`);
             backstopMetrics.reference.end = new Date();
 
-            backstopMetrics.logs.reference = {};
-            backstopMetrics.logs.reference.out = '';
-            backstopMetrics.logs.reference.err = '';
-            backstopMetrics.logs.reference.errorMessage = '';
+            runtimeLogs.reference = {};
+            runtimeLogs.reference.out = '';
+            runtimeLogs.reference.err = '';
+            runtimeLogs.reference.errorMessage = '';
         }
         catch (error) {
             console.log(`The "reference" command ended with an error.`);
             backstopMetrics.reference.end = new Date();
 
-            backstopMetrics.logs.reference = {};
-            backstopMetrics.logs.reference.out = '';
-            backstopMetrics.logs.reference.err = '';
-            backstopMetrics.logs.reference.errorMessage = error.message;
+            runtimeLogs.reference = {};
+            runtimeLogs.reference.out = '';
+            runtimeLogs.reference.err = '';
+            runtimeLogs.reference.errorMessage = error.message;
         }
     };
 
@@ -202,19 +203,19 @@ else {
             console.log(`The "test" command ended successfully.`);
             backstopMetrics.test.end = new Date();
 
-            backstopMetrics.logs.test = {};
-            backstopMetrics.logs.test.out = '';
-            backstopMetrics.logs.test.err = '';
-            backstopMetrics.logs.test.errorMessage = '';
+            runtimeLogs.test = {};
+            runtimeLogs.test.out = '';
+            runtimeLogs.test.err = '';
+            runtimeLogs.test.errorMessage = '';
         }
         catch (error) {
             console.log(`The "test" command ended with an error.`);
             backstopMetrics.test.end = new Date();
 
-            backstopMetrics.logs.test = {};
-            backstopMetrics.logs.test.out = '';
-            backstopMetrics.logs.test.err = '';
-            backstopMetrics.logs.test.errorMessage = error.message;
+            runtimeLogs.test = {};
+            runtimeLogs.test.out = '';
+            runtimeLogs.test.err = '';
+            runtimeLogs.test.errorMessage = error.message;
         }
     };
 }
@@ -229,8 +230,8 @@ const runABTest = async function runABTest(config) {
         full: {
             start: new Date()
         },
-        logs: {}
     };
+    runtimeLogs = {};
 
     const configPath = path.join(appRootDir, 'runtime', workerConfig['browser'], config['id'], 'backstop.json');
 
@@ -357,8 +358,9 @@ const parseResults = async function parseResults(backstopConfig, backstopResults
                 'passedCount': passedCount,
                 'failedCount': failedCount,
                 'passRate': passRate,
-                'success': (failedCount === 0 && testCount > 0 && testCount === expectedTestCount)
+                'success': (failedCount === 0 && testCount > 0 && testCount === expectedTestCount),
             },
+            'logs': runtimeLogs,
             'results': parsedResults,
             'resultsUrl': `${resultsBasePath}/html_report`
         };
