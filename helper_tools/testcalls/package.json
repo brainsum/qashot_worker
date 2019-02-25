@@ -1,0 +1,19 @@
+{
+  "name": "testcalls",
+  "version": "1.0.0",
+  "description": "",
+  "main": "testcalls.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "engines": {
+    "node": ">=10.0.0"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "request": "^2.88.0",
+    "request-promise-native": "^1.0.7",
+    "uuid": "^3.3.2"
+  }
+}
