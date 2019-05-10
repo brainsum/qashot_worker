@@ -96,6 +96,7 @@ router.post('/fetch', asyncHandler(async function fetchResultsHandler(req, res, 
     });
 }));
 
+// @internal
 router.post('/add', asyncHandler(async function addResultHandler(req, res, next) {
     const body = req.body;
     const uuid = body.uuid;
