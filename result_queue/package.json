@@ -1,6 +1,6 @@
 {
   "name": "result_queue",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Result storage and server service for the QAShot Worker stack.",
   "main": "index.js",
   "engines": {
@@ -31,7 +31,7 @@
     "pg": "^7.5.0",
     "pg-hstore": "^2.3.2",
     "request": "^2.88.0",
-    "request-promise-native": "^1.0.5",
+    "request-promise-native": "^1.0.7",
     "sequelize": "^5.8.5"
   },
   "devDependencies": {
