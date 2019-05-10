@@ -1,6 +1,6 @@
 {
   "name": "backstopjs_worker",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Worker service for the QAShot Worker project.",
   "main": "index.js",
   "engines": {
@@ -37,11 +37,11 @@
     "slimerjs": "^0.10.3"
   },
   "devDependencies": {
-    "@types/fs-extra": "^5.0.4",
-    "eslint": "^5.13.0",
-    "eslint-plugin-node": "^8.0.1",
+    "@types/fs-extra": "^5.1.0",
+    "eslint": "^5.16.0",
+    "eslint-plugin-node": "^9.0.1",
     "eslint-plugin-security": "^1.4.0",
-    "nodemon": "^1.18.9"
+    "nodemon": "^1.19.0"
   },
   "nodemonConfig": {
     "ignore": [
