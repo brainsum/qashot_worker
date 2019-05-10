@@ -74,7 +74,8 @@ if ('firefox' === workerConfig.browser) {
                 'ignore',
                 outLog,
                 errLog
-            ]
+            ],
+            encoding: 'utf8'
         };
 
         backstopMetrics.reference = {
@@ -132,14 +133,15 @@ if ('firefox' === workerConfig.browser) {
                 'ignore',
                 outLog,
                 errLog
-            ]
+            ],
+            encoding: 'utf8'
         };
 
         backstopMetrics.test = {
             'start': new Date()
         };
 
-        return spawn(`xvfb-run -a backstop test --configPath=${configPath}`, execConfig)
+        return spawn(`xvfb-run -a backstop test --configPath=${configPath}`, [], execConfig)
             .then(() => {
                 backstopMetrics.test.end = new Date();
                 console.log(`The "test" command ended successfully.`);
