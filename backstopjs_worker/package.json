@@ -1,6 +1,6 @@
 {
   "name": "backstopjs_worker",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "description": "Worker service for the QAShot Worker project.",
   "main": "index.js",
   "engines": {
@@ -30,7 +30,7 @@
     "express": "^4.16.4",
     "fs-extra": "^7.0.1",
     "promisify-child-process": "^3.1.0",
-    "qashot-compare": "^1.0.9",
+    "qashot-compare": "^1.0.12",
     "react": "^15.6.2",
     "react-dom": "^15.6.2",
     "request-promise-native": "^1.0.7",
