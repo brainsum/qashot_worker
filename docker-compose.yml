@@ -192,7 +192,7 @@ services:
     <<: *health-check
 
   result_queue:
-    image: brainsum/qashot-worker-result-queue:0.10.0
+    image: brainsum/qashot-worker-result-queue:0.11.0
     environment:
     - "NODE_ENV=production"
     - "JWT_SECRET_KEY=${JWT_SECRET_KEY}"
