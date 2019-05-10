@@ -50,7 +50,7 @@ RUN wget https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini 
 
 COPY package*.json ./
 
-RUN npm install --only=production && \
+RUN npm ci --only=production && \
     npm cache -g clean --force && \
     # Add these, so --no-sandbox is not needed for chrome.
     usermod -a -G audio,video node && \

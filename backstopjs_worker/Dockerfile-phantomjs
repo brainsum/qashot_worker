@@ -40,7 +40,7 @@ RUN \
 
 COPY package*.json ./
 
-RUN npm install --only=production && \
+RUN npm ci --only=production && \
     npm cache -g clean --force && \
     usermod -a -G audio,video node && \
     mkdir -p /home/node/Downloads && \

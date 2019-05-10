@@ -20,7 +20,7 @@ RUN apk add --no-cache tini
 
 COPY package*.json ./
 
-RUN npm install --only=production && \
+RUN npm ci --only=production && \
     npm cache -g clean --force && \
     mkdir -p /home/node/app/runtime && \
     chown -R node:node /home/node
