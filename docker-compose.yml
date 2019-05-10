@@ -23,7 +23,7 @@ x-health-check:
 
 services:
   backstopjs_worker_chrome:
-    image: brainsum/qashot-worker-backstopjs-chrome:0.10.5
+    image: brainsum/qashot-worker-backstopjs-chrome:0.10.6
     security_opt:
     - seccomp:unconfined
     # @todo: Might be needed.
