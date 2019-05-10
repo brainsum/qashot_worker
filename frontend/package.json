@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Frontend service for the QAShot Worker project.",
   "main": "index.js",
   "engines": {
@@ -35,10 +35,10 @@
     "serve-static": "^1.13.2"
   },
   "devDependencies": {
-    "eslint": "^5.9.0",
-    "eslint-plugin-node": "^8.0.0",
+    "eslint": "^5.16.0",
+    "eslint-plugin-node": "^9.0.1",
     "eslint-plugin-security": "^1.4.0",
-    "nodemon": "^1.18.7"
+    "nodemon": "^1.19.0"
   },
   "nodemonConfig": {
     "ignore": [
