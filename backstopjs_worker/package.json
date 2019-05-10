@@ -1,6 +1,6 @@
 {
   "name": "backstopjs_worker",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "Worker service for the QAShot Worker project.",
   "main": "index.js",
   "engines": {
@@ -26,7 +26,7 @@
     "@godaddy/terminus": "^4.1.0",
     "ajv": "^6.5.4",
     "amqplib": "^0.5.2",
-    "backstopjs": "^3.8.2",
+    "backstopjs": "^3.8.8",
     "express": "^4.16.4",
     "fs-extra": "^7.0.1",
     "promisify-child-process": "^2.1.2",
