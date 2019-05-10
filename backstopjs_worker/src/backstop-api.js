@@ -173,7 +173,7 @@ else {
 
         // @todo: Use "fork" and execute this as a child process, so we can capture the logs in files?
         try {
-            const results = backstop('reference', { config: config });
+            const results = await backstop('reference', { config: config });
             console.log(`The "reference" command ended successfully.`);
             backstopMetrics.reference.end = new Date();
 
@@ -201,7 +201,7 @@ else {
         };
 
         try {
-            const results = backstop('test', { config: config });
+            const results = await backstop('test', { config: config });
             console.log(`The "test" command ended successfully.`);
             backstopMetrics.test.end = new Date();
 
