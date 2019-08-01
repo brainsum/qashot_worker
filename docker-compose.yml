@@ -3,15 +3,16 @@ version: "3.7"
 x-dns-config:
   &dns-config
   dns:
-    # Cloudflare
-    - 1.1.1.1
-    - 1.0.0.1
-    # OpenDNS
-    - 208.67.222.222
-    - 208.67.220.220
-    # Google
-    - 8.8.8.8
-    - 8.8.4.4
+    - ${PIHOLE_IP}
+#    # Cloudflare
+#    - 1.1.1.1
+#    - 1.0.0.1
+#    # OpenDNS
+#    - 208.67.222.222
+#    - 208.67.220.220
+#    # Google
+#    - 8.8.8.8
+#    - 8.8.4.4
 
 x-health-check:
   &health-check
@@ -22,6 +23,36 @@ x-health-check:
     retries: 5
 
 services:
+  pihole:
+    image: pihole/pihole:4.3.1-4
+    dns:
+      - 127.0.0.1
+    networks:
+      dns_server:
+        ipv4_address: ${PIHOLE_IP}
+    environment:
+      TZ: 'Europe/Budapest'
+      WEBPASSWORD: "${PIHOLE_PASSWD}"
+      VIRTUAL_PORT: 80
+      DNS1: 1.1.1.1
+      DNS2: 1.0.0.1 # Maybe: no
+#      ServerIP: ''
+#    # Required for DHCP.
+#    cap_add:
+#      - NET_ADMIN
+#    restart: unless-stopped
+    volumes:
+      - './runtime/pihole/pihole/:/etc/pihole/'
+      - './runtime/pihole/dnsmasq.d/:/etc/dnsmasq.d/'
+    # @todo: add depends_on: dns_server to workers
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=pihole"
+      - "traefik.frontend.rule=Host:pihole.${PROJECT_BASE_URL},{catchall:.*}"
+      - "traefik.frontend.priority=1"
+      - "traefik.port=80"
+      - "traefik.docker.network=${PROJECT_NAME}_dns_server"
+
   backstopjs_worker_chrome:
     image: brainsum/qashot-worker-backstopjs-chrome:0.11.0
     security_opt:
@@ -39,7 +70,7 @@ services:
     - "RESULTS_ENDPOINT_URL=${RESULTS_ENDPOINT_URL}"
     depends_on:
     - internal_rabbitmq
-    restart: on-failure
+    restart: unless-stopped
     labels:
     - "traefik.enable=false"
     - "traefik.backend=backstopjs_worker_chrome"
@@ -50,6 +81,7 @@ services:
     networks:
     - chrome_worker_internal_rabbitmq
     - chrome_worker_result_queue
+    - dns_server
     volumes:
       - chrome_runtime:/home/node/app/runtime/chrome
     <<: *health-check
@@ -67,7 +99,7 @@ services:
     - "RESULTS_ENDPOINT_URL=${RESULTS_ENDPOINT_URL}"
     depends_on:
     - internal_rabbitmq
-    restart: on-failure
+    restart: unless-stopped
     labels:
     - "traefik.enable=false"
     - "traefik.backend=backstopjs_worker_firefox"
@@ -78,6 +110,7 @@ services:
     networks:
     - firefox_worker_internal_rabbitmq
     - firefox_worker_result_queue
+    - dns_server
     volumes:
     - firefox_runtime:/home/node/app/runtime/firefox
     <<: *health-check
@@ -95,7 +128,7 @@ services:
     - "RESULTS_ENDPOINT_URL=${RESULTS_ENDPOINT_URL}"
     depends_on:
     - internal_rabbitmq
-    restart: on-failure
+    restart: unless-stopped
     labels:
     - "traefik.enable=false"
     - "traefik.backend=backstopjs_worker_phantomjs"
@@ -106,6 +139,7 @@ services:
     networks:
     - phantomjs_worker_internal_rabbitmq
     - phantomjs_worker_result_queue
+    - dns_server
     volumes:
     - phantomjs_runtime:/home/node/app/runtime/phantomjs
     <<: *health-check
@@ -130,7 +164,7 @@ services:
       interval: 10s
       timeout: 10s
       retries: 5
-    restart: on-failure
+    restart: unless-stopped
     networks:
     - frontend_internal_rabbitmq
     - chrome_worker_internal_rabbitmq
@@ -154,7 +188,7 @@ services:
     depends_on:
     - internal_rabbitmq
     - result_queue
-    restart: on-failure
+    restart: unless-stopped
     labels:
     - "traefik.enable=true"
     - "traefik.backend=frontend"
@@ -197,7 +231,7 @@ services:
     - "DB_PASSWORD=${RESULT_DB_PASSWORD}"
     - "PROJECT_ENVIRONMENT=production"
     stop_grace_period: 10s
-    restart: on-failure
+    restart: unless-stopped
     depends_on:
     - result_db
     networks:
@@ -218,7 +252,7 @@ services:
     image: bitnami/postgresql:10.5.0
     container_name: "${PROJECT_NAME}_result_db"
     stop_grace_period: 10s
-    restart: on-failure
+    restart: unless-stopped
     environment:
     - "POSTGRESQL_USERNAME=${RESULT_DB_USER}"
     - "POSTGRESQL_PASSWORD=${RESULT_DB_PASSWORD}"
@@ -234,7 +268,7 @@ services:
   traefik:
     image: traefik:1.7.2-alpine
     container_name: "${PROJECT_NAME}_traefik"
-    restart: on-failure
+    restart: unless-stopped
     ports:
     - "${TRAEFIK_HOST_PORT}:80"
     - "${TRAEFIK_HOST_SSL_PORT:-443}:443"
@@ -249,6 +283,7 @@ services:
     - firefox_worker_internal_rabbitmq
     - phantomjs_worker_internal_rabbitmq
     - result_database
+    - dns_server
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
     - ./traefik/traefik.toml:/etc/traefik/traefik.toml
@@ -258,6 +293,12 @@ services:
     - "traefik.frontend.rule=Host:traefik.${PROJECT_BASE_URL}"
 
 networks:
+  dns_server:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: ${DNS_SERVER_SUBNET}
   frontend: {}
   frontend_result_queue: {}
   frontend_internal_rabbitmq: {}
