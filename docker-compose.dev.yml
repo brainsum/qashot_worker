@@ -69,8 +69,6 @@ services:
     - "traefik.port=9000"
     - "traefik.frontend.rule=Host:portainer.${PROJECT_BASE_URL}"
     restart: "no"
-    networks:
-    - monitoring
 
   internal_rabbitmq:
     restart: "no"
@@ -85,33 +83,12 @@ services:
     labels:
     - "traefik.port=8080"
 
-  prometheus:
-    restart: "no"
-
-  grafana:
-    restart: "no"
-
-  cadvisor:
-    restart: "no"
-
-  node_exporter:
-    restart: "no"
-
-  alertmanager:
-    restart: "no"
-
   mailhog:
     image: mailhog/mailhog:v1.0.0
     container_name: "${PROJECT_NAME}_mailhog"
     restart: "no"
-    networks:
-      - monitoring
     labels:
       - "traefik.enable=true"
       - "traefik.port=8025"
       - "traefik.backend=mailhog"
       - "traefik.frontend.rule=Host:mailhog.${PROJECT_BASE_URL}"
-      - "traefik.docker.network=${PROJECT_NAME}_monitoring"
-
-  mail_server:
-    restart: "no"

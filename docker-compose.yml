@@ -50,7 +50,6 @@ services:
     networks:
     - chrome_worker_internal_rabbitmq
     - chrome_worker_result_queue
-    - chrome_worker_monitoring
     volumes:
       - chrome_runtime:/home/node/app/runtime/chrome
     <<: *health-check
@@ -79,7 +78,6 @@ services:
     networks:
     - firefox_worker_internal_rabbitmq
     - firefox_worker_result_queue
-    - firefox_worker_monitoring
     volumes:
     - firefox_runtime:/home/node/app/runtime/firefox
     <<: *health-check
@@ -108,7 +106,6 @@ services:
     networks:
     - phantomjs_worker_internal_rabbitmq
     - phantomjs_worker_result_queue
-    - phantomjs_worker_monitoring
     volumes:
     - phantomjs_runtime:/home/node/app/runtime/phantomjs
     <<: *health-check
@@ -168,7 +165,6 @@ services:
     - frontend
     - frontend_result_queue
     - frontend_internal_rabbitmq
-    - frontend_monitoring
     volumes:
     - type: volume
       source: chrome_runtime
@@ -253,10 +249,6 @@ services:
     - firefox_worker_internal_rabbitmq
     - phantomjs_worker_internal_rabbitmq
     - result_database
-    - chrome_worker_monitoring
-    - firefox_worker_monitoring
-    - phantomjs_worker_monitoring
-    - frontend_monitoring
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
     - ./traefik/traefik.toml:/etc/traefik/traefik.toml
@@ -276,10 +268,6 @@ networks:
   firefox_worker_internal_rabbitmq: {}
   phantomjs_worker_internal_rabbitmq: {}
   result_database: {}
-  frontend_monitoring: {}
-  chrome_worker_monitoring: {}
-  firefox_worker_monitoring: {}
-  phantomjs_worker_monitoring: {}
 
 volumes:
   chrome_runtime: {}
