@@ -136,9 +136,9 @@ function processMessage(message) {
     backstopConfig.onReadyScript = 'onReady.js';
 
     backstopConfig.paths = {
-        "engine_scripts": (workerConfig.browser === 'phantomjs')
-            ? path.join('templates', workerConfig.scriptsFolder)
-            : path.join(templatesAbsDir, workerConfig.scriptsFolder),
+        "engine_scripts": (workerConfig.browser === 'chrome')
+            ? path.join(templatesAbsDir, workerConfig.scriptsFolder)
+            : path.join('templates', workerConfig.scriptsFolder),
         "bitmaps_reference": path.join(currentRuntime, "reference"),
         "bitmaps_test": path.join(currentRuntime, "test"),
         "html_report": path.join(currentRuntime, "html_report"),
