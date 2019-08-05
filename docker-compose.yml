@@ -44,7 +44,6 @@ services:
     volumes:
       - './runtime/pihole/pihole/:/etc/pihole/'
       - './runtime/pihole/dnsmasq.d/:/etc/dnsmasq.d/'
-    # @todo: add depends_on: dns_server to workers
     labels:
       - "traefik.enable=true"
       - "traefik.backend=pihole"
@@ -69,6 +68,7 @@ services:
     - "EXPOSED_PORT=10000"
     - "RESULTS_ENDPOINT_URL=${RESULTS_ENDPOINT_URL}"
     depends_on:
+    - pihole
     - internal_rabbitmq
     restart: unless-stopped
     labels:
@@ -98,6 +98,7 @@ services:
     - "EXPOSED_PORT=10100"
     - "RESULTS_ENDPOINT_URL=${RESULTS_ENDPOINT_URL}"
     depends_on:
+    - pihole
     - internal_rabbitmq
     restart: unless-stopped
     labels:
@@ -127,6 +128,7 @@ services:
     - "EXPOSED_PORT=10200"
     - "RESULTS_ENDPOINT_URL=${RESULTS_ENDPOINT_URL}"
     depends_on:
+    - pihole
     - internal_rabbitmq
     restart: unless-stopped
     labels:
