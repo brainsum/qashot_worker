@@ -29,8 +29,6 @@ const {createTerminus} = require('@godaddy/terminus');
 const asyncHandlerMiddleware = require('express-async-handler');
 const jwtHandlerMiddleware = require('express-jwt');
 
-const url = require('url');
-
 const internalMessageQueue = require('./src/message-queue');
 
 // Constants
@@ -38,14 +36,14 @@ const PORT = process.env.EXPOSED_PORT;
 const HOST = '0.0.0.0';
 
 function getInternalMQOptions() {
-    const parsedUrl = url.parse(process.env.INTERNAL_RABBITMQ_URL);
-    const auth = parsedUrl.auth.split(':');
+    const parsedUrl = new URL(process.env.INTERNAL_RABBITMQ_URL);
+
     return {
         protocol: 'amqp',
         hostname: parsedUrl.hostname,
         port: 5672,
-        username: auth[0],
-        password: auth[1],
+        username: parsedUrl.username,
+        password: parsedUrl.password,
         locale: 'en_US',
         frameMax: 0,
         channelMax: 0,
