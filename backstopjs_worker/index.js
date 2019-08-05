@@ -195,7 +195,7 @@ function processMessage(message) {
 }
 
 async function rabbitTestLoop() {
-    const timeout = 10000;
+    const loopDelay = 10000;
     console.time('rabbitTestLoop');
 
     let message = null;
@@ -205,10 +205,10 @@ async function rabbitTestLoop() {
     }
     catch (error) {
         console.log(`Couldn't read from RabbitMQ: ${error}`);
-        console.log(`Queue read delayed for ${timeout / 1000} seconds.`);
+        console.log(`Queue read delayed for ${loopDelay / 1000} seconds.`);
         console.timeEnd('rabbitTestLoop');
 
-        return delay(timeout).then(async () => {
+        return delay(loopDelay).then(async () => {
             await rabbitTestLoop();
         });
     }

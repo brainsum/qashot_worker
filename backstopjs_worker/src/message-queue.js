@@ -111,9 +111,9 @@ module.exports = class MessageQueue {
             this.connection = conn;
         }
         catch (error) {
-            const timeout = 3000;
-            console.log(`Connection to the MQ failed. Retry in ${timeout / 1000} seconds.. (${error.message})`);
-            await delay(timeout);
+            const reconnectDelay = 3000;
+            console.log(`Connection to the MQ failed. Retry in ${reconnectDelay / 1000} seconds.. (${error.message})`);
+            await delay(reconnectDelay);
             await this.doConnect();
         }
 
