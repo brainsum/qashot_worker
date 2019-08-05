@@ -68,7 +68,7 @@ router.post('/fetch', asyncHandler(async function fetchResultsHandler(req, res, 
 
     const resultUuids = Object.keys(rowsKeyed);
     console.log(`Fetch request: ${resultUuids.length} results queried.`);
-    if (null !== resultUuids && 'undefined' !== typeof resultUuids && resultUuids.length > 0) {
+    if ('undefined' !== typeof resultUuids && resultUuids.length > 0) {
         console.log('Updating results.');
         try {
             let update = ResultModel.update({
