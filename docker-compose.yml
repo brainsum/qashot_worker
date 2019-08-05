@@ -54,7 +54,7 @@ services:
       - "traefik.docker.network=${PROJECT_NAME}_dns_server"
 
   backstopjs_worker_chrome:
-    image: brainsum/qashot-worker-backstopjs-chrome:0.11.1
+    image: brainsum/qashot-worker-backstopjs-chrome:0.11.2
     security_opt:
     - seccomp:unconfined
     # @todo: Might be needed.
@@ -88,7 +88,7 @@ services:
     <<: *dns-config
 
   backstopjs_worker_firefox:
-    image: brainsum/qashot-worker-backstopjs-firefox:0.11.1
+    image: brainsum/qashot-worker-backstopjs-firefox:0.11.2
     environment:
     - "NODE_ENV=production"
     - "WORKER_BROWSER=firefox"
@@ -117,7 +117,7 @@ services:
     <<: *dns-config
 
   backstopjs_worker_phantomjs:
-    image: brainsum/qashot-worker-backstopjs-phantomjs:0.11.1
+    image: brainsum/qashot-worker-backstopjs-phantomjs:0.11.2
     environment:
     - "NODE_ENV=production"
     - "WORKER_BROWSER=phantomjs"
