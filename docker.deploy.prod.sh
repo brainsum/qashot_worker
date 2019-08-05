@@ -4,7 +4,6 @@ git pull
 
 ./docker.image-pull.sh
 
-./docker.build.sh && \
-    ./docker.startup.prod.sh
+./docker.startup.prod.sh
 
 ./docker.cleanup.sh

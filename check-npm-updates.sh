@@ -2,7 +2,7 @@
 
 services=('frontend' 'backstopjs_worker' 'result_queue')
 
-for service in ${services[@]}
+for service in "${services[@]}"
 do
   echo "NPM status for ${service}:"
   cd "${service}" && npm outdated -l
