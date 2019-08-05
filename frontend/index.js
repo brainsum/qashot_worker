@@ -37,11 +37,10 @@ const HOST = '0.0.0.0';
 
 function getInternalMQOptions() {
     const parsedUrl = new URL(process.env.INTERNAL_RABBITMQ_URL);
-
     return {
         protocol: 'amqp',
         hostname: parsedUrl.hostname,
-        port: 5672,
+        port: parsedUrl.port,
         username: parsedUrl.username,
         password: parsedUrl.password,
         locale: 'en_US',

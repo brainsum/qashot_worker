@@ -1,7 +1,6 @@
 'use strict';
 
 const amqp = require('amqplib');
-const url = require('url');
 
 function delay(t, v) {
     return new Promise(function(resolve) {
@@ -19,14 +18,13 @@ module.exports = class MessageQueue {
     }
 
     static getConnectionOptions(connectionString) {
-        const parsedUrl = url.parse(connectionString);
-        const auth = parsedUrl.auth.split(':');
+        const parsedUrl = new URL(connectionString);
         return {
             protocol: 'amqp',
             hostname: parsedUrl.hostname,
             port: parsedUrl.port,
-            username: auth[0],
-            password: auth[1],
+            username: parsedUrl.username,
+            password: parsedUrl.password,
             locale: 'en_US',
             frameMax: 0,
             channelMax: 0,
