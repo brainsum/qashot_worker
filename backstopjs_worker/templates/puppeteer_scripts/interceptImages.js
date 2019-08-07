@@ -55,9 +55,10 @@ module.exports = async function(page, scenario) {
       return;
     }*/
     if (
-      IMAGE_URL_REGEX.test(request.url()) ||
-      request.url().startsWith("data:image/") ||
-      type === "image"
+      (IMAGE_URL_REGEX.test(request.url()) ||
+        request.url().startsWith("data:image/") ||
+        type === "image") &&
+      !request.url().includes("data:image/svg+xml;")
     ) {
       await request.respond({
         body: await getResizedImageSize(request.url(), scenario),
@@ -76,13 +77,15 @@ function clearUrl(url) {
   return url
     .replace(/\/\s*$/, "")
     .split("#")[0]
-    .replace(/^http:\/\//i, "https://");
+    .replace(/^http:\/\//i, "https://")
+    .replace(/\/$/, "");
 }
 
 async function getResizedImageSize(url, scenario) {
   let imageSize;
   if (url.startsWith("data:image/")) {
     var img = Buffer.from(url.split(",")[1], "base64");
+
     imageSize = sizeOf(img);
   } else {
     imageSize = await requestImageSize(url);
