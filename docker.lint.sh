@@ -1,19 +1,22 @@
 #!/usr/bin/env bash
 
-if [ ! -f ./vendor/hadolint ]; then
-    echo "Hadolint not found, get the latest version here: https://github.com/hadolint/hadolint/releases"
-    exit 1
-fi
+hadolintVersion="v1.17.2"
+projectRoot="${0%/*}"
 
-echo "Linting files with $(./vendor/hadolint --version)"
+files=(\
+  "backstopjs_worker/Dockerfile-phantomjs" \
+  "backstopjs_worker/Dockerfile-firefox" \
+  "backstopjs_worker/Dockerfile-chrome" \
+  "frontend/Dockerfile" \
+  "result_queue/Dockerfile"
+)
 
-./vendor/hadolint ./frontend/Dockerfile
+echo "Linting with hadolint ${hadolintVersion}"
 echo ""
-./vendor/hadolint ./backstopjs_worker/Dockerfile-chrome
-echo ""
-./vendor/hadolint ./backstopjs_worker/Dockerfile-firefox
-echo ""
-./vendor/hadolint ./backstopjs_worker/Dockerfile-phantomjs
-echo ""
-./vendor/hadolint ./result_queue/Dockerfile
-echo ""
+
+for file in "${files[@]}";
+do
+  echo "Linting file ${projectRoot}/${file}"
+  docker run --rm -i hadolint/hadolint:${hadolintVersion} < "${projectRoot}/${file}" && echo "Ok"
+  echo ""
+done
