@@ -27,7 +27,7 @@
     "express": "^4.17.1",
     "express-async-handler": "^1.1.4",
     "express-robots-txt": "^0.4.1",
-    "helmet": "^3.20.0",
+    "helmet": "^3.21.1",
     "pg": "^7.12.0",
     "pg-hstore": "^2.3.3",
     "request": "^2.88.0",
