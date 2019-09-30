@@ -37,6 +37,16 @@ function delay(t, v) {
 }
 
 /**
+ * Json object to String.
+ *
+ * @param {Object} json
+ * @return {string}
+ */
+function jsonToString(json) {
+    return JSON.stringify(json, null, 2);
+}
+
+/**
  * Do a single request.
  *
  * @return {Promise<Object>}
@@ -52,6 +62,8 @@ async function doRequest() {
         throw error;
     }
 }
+
+let resultsArray = [];
 
 /**
  * Return every result that's available.
@@ -80,7 +92,8 @@ async function getEveryResult() {
         }
         else {
             console.log(`Current results json: ${inspect(json)}`);
-            results = Object.assign({}, json);
+            results = Object.assign(results, json.results);
+            resultsArray.push(json);
             await delay(1000);
         }
     }
@@ -114,7 +127,7 @@ function parseData(data) {
     };
 
     for (let key in data.results) {
-        console.log(`PUSH url for ${key}`);
+        console.log(`Saving url for ${key}`);
         resultsUrls.push(`[${key}](${data.results[key].data.resultsUrl})`);
 
         metrics.testCount += 1;
@@ -138,17 +151,27 @@ function parseData(data) {
     metrics.aggregated.duration.minutes = metrics.aggregated.duration.seconds / 60;
     metrics.aggregated.duration.hours = metrics.aggregated.duration.minutes / 60;
 
+    const date = (new Date()).getTime();
+
+
     if (resultsUrls.length > 0) {
-        const date = (new Date()).getTime();
-        fs.writeFileSync(`./data/results.${date}.data.json`, JSON.stringify(data, null, 2), {options: 'utf8'});
-        fs.writeFileSync(`./data/results.${date}.metrics.json`, JSON.stringify(metrics, null, 2), {options: 'utf8'});
-        fs.writeFileSync(`./data/results.${date}.urls.md`, JSON.stringify(resultsUrls, null, 2), {options: 'utf8'});
+        fs.mkdirSync(`./data/${date}`);
+        fs.writeFileSync(`./data/${date}/results.data.json`, jsonToString(data), {encoding: 'utf8'});
+        fs.writeFileSync(`./data/${date}/results.metrics.json`, jsonToString(metrics), {encoding: 'utf8'});
+        fs.writeFileSync(`./data/${date}/results.urls.md`, jsonToString(resultsUrls), {encoding: 'utf8'});
     }
+
+    fs.writeFileSync(`./data/results.raw-results.${date}.json`, jsonToString(resultsArray), {encoding: 'utf8'});
+    console.log('Done.');
+}
+
+function processData(data) {
+    parseData(data);
 }
 
 getEveryResult()
     .then((data) => {
-        parseData(data);
+        processData(data);
     })
     .catch((error) => {
         console.error(error);

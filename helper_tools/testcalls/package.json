@@ -4,6 +4,8 @@
   "description": "",
   "main": "testcalls.js",
   "scripts": {
+    "send-tests": "node testcalls.js",
+    "get-results": "node testresults.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "engines": {
