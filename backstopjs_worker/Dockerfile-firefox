@@ -1,4 +1,4 @@
-FROM node:10.16.1
+FROM node:10.16.3
 
 ARG EXPOSED_PORT=10100
 
@@ -46,7 +46,7 @@ RUN \
         libxrender1=1:0.9.10-1 \
         libdbus-glib-1-2=0.108-2 \
         libgtk-3-0=3.22.11-1 \
-        libglib2.0-0=2.50.3-2 \
+        libglib2.0-0=2.50.3-2+deb9u1 \
         libx11-xcb1=2:1.6.4-3+deb9u1 \
         libcogl-pango20=1.22.2-2 \
         dbus-x11=1.10.28-0+deb9u1 \

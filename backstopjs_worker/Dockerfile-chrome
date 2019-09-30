@@ -1,4 +1,4 @@
-FROM node:10.16.1
+FROM node:10.16.3
 
 ARG EXPOSED_PORT=10000
 
@@ -35,7 +35,7 @@ RUN wget https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini 
     add-apt-repository "deb http://dl.google.com/linux/chrome/deb/ stable main" && \
     apt-get update && \
 	apt-get install -y --no-install-recommends \
-	    google-chrome-stable=76.0.3809.87-1 \
+	    google-chrome-stable=77.0.3865.90-1 \
 	    fonts-ipafont-gothic=00303-16 \
 	    fonts-wqy-zenhei=0.9.45-6 \
 	    fonts-thai-tlwg=1:0.6.3-1 \
