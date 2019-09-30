@@ -1,12 +1,14 @@
 FROM node:10.16.1
 
+ARG EXPOSED_PORT=10200
+
 LABEL maintainer="mhavelant"
 
 ENTRYPOINT ["/sbin/tini", "--"]
 
-CMD ["npm", "start"]
+CMD ["node", "index.js"]
 
-EXPOSE 10200
+EXPOSE $EXPOSED_PORT
 
 WORKDIR /home/node/app
 
@@ -19,8 +21,9 @@ ENV PATH="/home/node/app/node_modules/.bin:${PATH}" \
 	# See https://github.com/Medium/phantomjs/issues/707
 	NPM_CONFIG_UNSAFE_PERM=true \
 	TINI_VERSION=v0.18.0 \
-    EXPOSED_PORT=10200 \
-    PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+    EXPOSED_PORT=$EXPOSED_PORT \
+    PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    NODE_ENV=production
 
 RUN \
     wget https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini -O /sbin/tini && \
@@ -36,19 +39,18 @@ RUN \
         /var/lib/apt/lists/* \
         /var/cache/apt/* \
         /tmp/* \
-        /var/tmp/*
-
-COPY package*.json ./
-
-RUN npm ci --only=production && \
-    npm cache -g clean --force && \
+        /var/tmp/* && \
+    # Add these, so --no-sandbox is not needed for chrome.
     usermod -a -G audio,video node && \
     mkdir -p /home/node/Downloads && \
     mkdir -p /home/node/app/runtime/phantomjs && \
     chown -R node:node /home/node
 
-COPY . .
-
-ENV NODE_ENV=production
-
 USER node
+
+COPY --chown=node package*.json ./
+
+RUN npm ci --only=production && \
+    npm cache -g clean --force
+
+COPY --chown=node . .

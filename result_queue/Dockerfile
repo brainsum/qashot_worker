@@ -1,13 +1,12 @@
-# Build
 FROM node:10.16.1-alpine
 
-ARG EXPOSED_PORT
+ARG EXPOSED_PORT=9800
 
 LABEL maintainer="mhavelant"
 
 ENTRYPOINT ["/sbin/tini", "--"]
 
-CMD ["npm", "start"]
+CMD ["node", "index.js"]
 
 EXPOSE $EXPOSED_PORT
 
@@ -20,15 +19,15 @@ ENV PATH="/home/node/app/node_modules/.bin:$PATH" \
     NODE_ENV=production \
     EXPOSED_PORT=$EXPOSED_PORT
 
-RUN apk add --no-cache tini
-
-COPY package*.json ./
-
-RUN npm ci --only=production && \
-    npm cache -g clean --force && \
+RUN apk add --no-cache tini && \
     mkdir -p /home/node/app/runtime && \
     chown -R node:node /home/node
 
-COPY . .
-
 USER node
+
+COPY --chown=node package*.json ./
+
+RUN npm ci --only=production && \
+    npm cache -g clean --force
+
+COPY --chown=node . .
