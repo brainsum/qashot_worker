@@ -47,7 +47,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.backend=pihole"
-      - "traefik.frontend.rule=Host:pihole.${PROJECT_BASE_URL},{catchall:.*}"
+      - "traefik.frontend.rule=Host:pihole-${PROJECT_BASE_URL},{catchall:.*}"
       - "traefik.frontend.priority=1"
       - "traefik.port=80"
       - "traefik.docker.network=${PROJECT_NAME}_dns_server"
