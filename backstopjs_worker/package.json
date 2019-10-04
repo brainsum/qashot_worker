@@ -10,7 +10,9 @@
   "scripts": {
     "start": "node index.js",
     "lint": "eslint index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "snyk-protect": "snyk protect",
+    "prepare": "npm run snyk-protect"
   },
   "repository": {
     "type": "git",
@@ -34,7 +36,8 @@
     "react": "^15.6.2",
     "react-dom": "^15.6.2",
     "request-promise-native": "^1.0.7",
-    "slimerjs": "^0.10.3"
+    "slimerjs": "^0.10.3",
+    "snyk": "^1.230.5"
   },
   "devDependencies": {
     "@types/fs-extra": "^8.0.0",
@@ -50,5 +53,6 @@
       "templates"
     ],
     "delay": 2500
-  }
+  },
+  "snyk": true
 }
