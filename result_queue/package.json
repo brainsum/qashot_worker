@@ -24,7 +24,7 @@
   "homepage": "https://github.com/brainsum/qashot_worker#readme",
   "dependencies": {
     "@godaddy/terminus": "^4.2.0",
-    "express": "^4.17.1",
+    "express": "^4.17.3",
     "express-async-handler": "^1.1.4",
     "express-robots-txt": "^0.4.1",
     "helmet": "^3.21.1",
